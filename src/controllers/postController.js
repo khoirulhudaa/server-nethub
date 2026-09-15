@@ -23,8 +23,8 @@ export const createPost = async (req, res, next) => {
       });
     }
 
-    const tags = Array.isArray(req.body.tags) ? req.body.tags : [];
-    if (tags.length > 4) {
+    const tagsValue = Array.isArray(req.body.tags) ? req.body.tags : [];
+    if (tagsValue.length > 4) {
       return res.status(400).json({ message: "Maksimal 4 tags" });
     }
 
@@ -107,6 +107,11 @@ export const updatePost = async (req, res, next) => {
     if (!post) return res.status(404).json({ message: "Post not found" });
     if (String(post.author) !== String(req.user._id)) {
       return res.status(403).json({ message: "You can only edit your own posts" });
+    }
+    
+    const tagsValue = Array.isArray(req.body.tags) ? req.body.tags : [];
+    if (tagsValue.length > 4) {
+      return res.status(400).json({ message: "Maksimal 4 tags" });
     }
 
     // Tambahkan "topology" ke daftar field
