@@ -1,9 +1,10 @@
+// server/models/Quiz.js  (tambahan field)
 import mongoose from "mongoose";
 import slugify from "slugify";
 
 const OPTION_SCHEMA = new mongoose.Schema(
   {
-    text: { type: String, required: true },
+    text: { type: String, default: "" },
     isCorrect: { type: Boolean, default: false },
   },
   { _id: false }
@@ -17,26 +18,27 @@ const QUESTION_SCHEMA = new mongoose.Schema(
       required: true,
     },
     questionText: { type: String, required: true, maxlength: 500 },
-    explanation: { type: String, default: "" }, // ditampilkan setelah submit
+    explanation: { type: String, default: "" },
     points: { type: Number, default: 10, min: 1, max: 100 },
-
-    // ===== Multiple Choice =====
-    options: [OPTION_SCHEMA],           // hanya untuk multiple_choice
-    allowMultiple: { type: Boolean, default: false }, // true = bisa pilih >1 jawaban
-
-    // ===== Topology (praktek) =====
-    // Kunci jawaban yang dibuat pembuat soal
+    options: [OPTION_SCHEMA],
+    allowMultiple: { type: Boolean, default: false },
     correctTopology: {
       nodes: { type: Array, default: [] },
       edges: { type: Array, default: [] },
     },
-    // Batasan yang boleh dipakai user (opsional, biar tidak free-style)
-    allowedHardware: [{ type: String }], // e.g. ["Router", "Switch", "Access Point"]
-    allowedCables: [{ type: String }],   // e.g. ["utp", "fiber", "wireless"]
-    // Toleransi matching (berapa persen kemiripan dianggap benar)
-    matchThreshold: { type: Number, default: 0.85 }, // 85%
+    allowedHardware: [{ type: String }],
+    allowedCables: [{ type: String }],
+    matchThreshold: { type: Number, default: 0.85 },
   },
   { _id: true }
+);
+
+const ratingSchema = new mongoose.Schema(
+  {
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    value: { type: Number, required: true, min: 1, max: 5 },
+  },
+  { _id: false }
 );
 
 const quizSchema = new mongoose.Schema(
@@ -60,6 +62,13 @@ const quizSchema = new mongoose.Schema(
     },
     author: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     isPublished: { type: Boolean, default: false },
+
+    // ===== Social =====
+    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    ratings: [ratingSchema],
+    averageRating: { type: Number, default: 0 },
+    ratingCount: { type: Number, default: 0 },
+
     attempts: { type: Number, default: 0 },
     averageScore: { type: Number, default: 0 },
   },

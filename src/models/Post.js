@@ -41,7 +41,13 @@ const postSchema = new mongoose.Schema(
       edges: { type: Array, default: [] },
     },
     category: { type: String, enum: CATEGORIES, required: true },
-    tags: [{ type: String, trim: true, lowercase: true }],
+    tatags: {
+      type: [{ type: String, trim: true, lowercase: true }],
+      validate: {
+        validator: (v) => v.length <= 4,
+        message: "Maksimal 4 tags",
+      },
+    },
     hardwareMeshes: [hardwareMeshSchema],
     gallery: [galleryItemSchema],
     author: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },

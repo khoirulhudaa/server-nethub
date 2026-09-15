@@ -23,6 +23,11 @@ export const createPost = async (req, res, next) => {
       });
     }
 
+    const tags = Array.isArray(req.body.tags) ? req.body.tags : [];
+    if (tags.length > 4) {
+      return res.status(400).json({ message: "Maksimal 4 tags" });
+    }
+
     const post = await Post.create({
       title,
       excerpt,

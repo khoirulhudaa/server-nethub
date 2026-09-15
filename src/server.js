@@ -7,6 +7,7 @@ import { notFound, errorHandler } from "./middleware/errorHandler.js";
 import authRoutes from "./routes/authRoutes.js";
 import postRoutes from "./routes/postRoutes.js";
 import commentRoutes from "./routes/commentRoutes.js";
+import quizRoutes from "./routes/quizRouter.js";
 
 dotenv.config();
 connectDB();
@@ -26,6 +27,7 @@ app.get("/api/health", (req, res) => res.json({ status: "ok", service: "networki
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api", commentRoutes); // exposes /api/posts/:postId/comments and /api/comments/:id
+app.use("/api/quizzes", quizRoutes);                     // ← tambahkan
 
 app.use(notFound);
 app.use(errorHandler);
