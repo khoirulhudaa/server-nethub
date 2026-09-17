@@ -5,6 +5,7 @@ import User from "../models/User.js";
 
 export const createPost = async (req, res, next) => {
   try {
+    // createPost
     const { 
       title, 
       excerpt, 
@@ -14,8 +15,17 @@ export const createPost = async (req, res, next) => {
       tags, 
       hardwareMeshes, 
       gallery, 
-      topology          // ← tambahkan
+      topology,
+      steps,           // ← baru
+      customTables,    // ← baru
+      flowchart,       // ← baru
+      referencesImages,          // ← tambah
     } = req.body;
+
+    const refs = Array.isArray(referencesImages) ? referencesImages : [];
+    if (refs.length > 4) {
+      return res.status(400).json({ message: "Maksimal 4 reference images" });
+    }
 
     if (!POST_CATEGORIES.includes(category)) {
       return res.status(400).json({ 
@@ -37,7 +47,11 @@ export const createPost = async (req, res, next) => {
       tags: Array.isArray(tags) ? tags : [],
       hardwareMeshes: Array.isArray(hardwareMeshes) ? hardwareMeshes : [],
       gallery: Array.isArray(gallery) ? gallery : [],
-      topology: topology || { nodes: [], edges: [] },   // ← tambahkan
+      topology: topology || { nodes: [], edges: [] },
+      referencesImages: refs,
+      flowchart: flowchart || { nodes: [], edges: [] },
+      steps: Array.isArray(steps) ? steps : [],
+      customTables: Array.isArray(customTables) ? customTables : [],
       author: req.user._id,
     });
 
@@ -62,7 +76,7 @@ export const getPosts = async (req, res, next) => {
       Post.find({ ...filter, isPinned: true })
         .populate("author", "name avatar title")
         .sort({ createdAt: -1 })
-        .limit(3),
+        .limit(4),
       Post.find({ ...filter, isPinned: false })
         .populate("author", "name avatar title")
         .sort({ createdAt: -1 })
@@ -114,7 +128,7 @@ export const updatePost = async (req, res, next) => {
       return res.status(400).json({ message: "Maksimal 4 tags" });
     }
 
-    // Tambahkan "topology" ke daftar field
+    // updatePost
     const fields = [
       "title", 
       "excerpt", 
@@ -124,7 +138,12 @@ export const updatePost = async (req, res, next) => {
       "tags", 
       "hardwareMeshes", 
       "gallery", 
-      "topology"          // ← tambahkan
+      "topology",
+      "referencesImages",
+      "steps",
+      "customTables",
+      "flowchart",
+      "codeBlocks",        // ← tambahkan ini
     ];
     
     fields.forEach((f) => {
