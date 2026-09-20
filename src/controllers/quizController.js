@@ -379,3 +379,88 @@ export const deleteQuizComment = async (req, res, next) => {
     next(err);
   }
 };
+
+// ====================== TRENDING ======================
+export const getTrendingQuizzes = async (req, res, next) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 6, 20);
+    const sortBy = req.query.sort || "likes"; // "likes" | "rating"
+
+    const filter = { isPublished: true };
+
+    let sort = {};
+    if (sortBy === "rating") {
+      // Highest rated (minimal punya 1 rating)
+      sort = { averageRating: -1, ratingCount: -1 };
+      filter.ratingCount = { $gte: 1 };
+    } else {
+      // Most loved (berdasarkan jumlah likes)
+      sort = { likesCount: -1, createdAt: -1 };
+    }
+
+    // Karena likes adalah array, kita pakai aggregation supaya bisa sort by length
+    if (sortBy === "likes") {
+      const quizzes = await Quiz.aggregate([
+        { $match: filter },
+        {
+          $addFields: {
+            likesCount: { $size: { $ifNull: ["$likes", []] } },
+            questionsCount: { $size: { $ifNull: ["$questions", []] } },
+          },
+        },
+        { $sort: { likesCount: -1, createdAt: -1 } },
+        { $limit: limit },
+        {
+          $lookup: {
+            from: "users",
+            localField: "author",
+            foreignField: "_id",
+            as: "author",
+          },
+        },
+        { $unwind: { path: "$author", preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            title: 1,
+            description: 1,
+            category: 1,
+            tags: 1,
+            averageRating: 1,
+            ratingCount: 1,
+            likesCount: 1,
+            questionsCount: 1,
+            attempts: 1,
+            createdAt: 1,
+            "author._id": 1,
+            "author.name": 1,
+            "author.avatar": 1,
+            "author.title": 1,
+          },
+        },
+      ]);
+
+      return res.json({ quizzes, sort: "likes" });
+    }
+
+    // Rating sort (bisa pakai find biasa)
+    const quizzes = await Quiz.find(filter)
+      .populate("author", "name avatar title")
+      .sort(sort)
+      .limit(limit)
+      .select(
+        "title description category tags averageRating ratingCount likes attempts createdAt"
+      )
+      .lean();
+
+    // Tambahkan likesCount & questionsCount
+    const result = quizzes.map((q) => ({
+      ...q,
+      likesCount: q.likes?.length || 0,
+      questionsCount: q.questions?.length || 0,
+    }));
+
+    res.json({ quizzes: result, sort: "rating" });
+  } catch (err) {
+    next(err);
+  }
+};

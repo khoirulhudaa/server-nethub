@@ -8,6 +8,8 @@ import authRoutes from "./routes/authRoutes.js";
 import postRoutes from "./routes/postRoutes.js";
 import commentRoutes from "./routes/commentRoutes.js";
 import quizRoutes from "./routes/quizRouter.js";
+import announcementRoutes from "./routes/announcementRoutes.js";
+import collectionRoutes from "./routes/hardwareRoutes.js";
 
 dotenv.config();
 connectDB();
@@ -26,8 +28,25 @@ app.get("/api/health", (req, res) => res.json({ status: "ok", service: "networki
 
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", postRoutes);
+app.use("/api/hardware", collectionRoutes);
 app.use("/api", commentRoutes); // exposes /api/posts/:postId/comments and /api/comments/:id
 app.use("/api/quizzes", quizRoutes);                     // ← tambahkan
+app.use("/api/announcements", announcementRoutes);
+
+const router = express.Router();
+
+// GET /api/test
+router.get("/", (req, res) => {
+  res.json({
+    message: "Test route berjalan dengan baik",
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// POST /api/test/echo -> mengembalikan body yang dikirim
+router.post("/echo", (req, res) => {
+  res.json({ received: req.body });
+});
 
 app.use(notFound);
 app.use(errorHandler);
@@ -36,4 +55,3 @@ const PORT = process.env.PORT || 5000;
 if (process.env.NODE_ENV !== "production") {
   app.listen(5000, () => console.log(`Networking Hub API running on port ${PORT}`));
 }
-module.exports = app;

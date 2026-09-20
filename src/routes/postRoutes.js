@@ -11,12 +11,14 @@ import {
   toggleBookmark,
   getMyBookmarks,
   getMyLikedPosts,
+  getTrendingPosts,
 } from "../controllers/postController.js";
 import { protect, optionalAuth } from "../middleware/auth.js";
 
 const router = Router();
 
 router.get("/", optionalAuth, getPosts);
+router.get("/trending", getTrendingPosts);   // ← tambah ini
 router.get("/mine", protect, getMyPosts);
 router.get("/:slug", getPostBySlug);
 router.post("/", protect, createPost);
@@ -32,5 +34,8 @@ router.patch("/:id/pin", protect, togglePin);
 router.post("/:id/bookmark", protect, toggleBookmark);
 router.get("/me/likes", protect, getMyLikedPosts);
 router.get("/mine", protect, getMyPosts);
+router.get("/", optionalAuth, getPosts);
+router.get("/mine", protect, getMyPosts);
+router.get("/me/likes", protect, getMyLikedPosts);
 
 export default router;

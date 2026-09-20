@@ -13,6 +13,7 @@ import {
   getQuizComments,
   addQuizComment,
   deleteQuizComment,
+  getTrendingQuizzes, // ← tambahkan
 } from "../controllers/quizController.js";
 import { protect, optionalAuth } from "../middleware/auth.js";
 
@@ -20,6 +21,7 @@ const router = Router();
 
 // Public / list
 router.get("/", optionalAuth, getQuizzes);
+router.get("/trending", optionalAuth, getTrendingQuizzes); // ← tambahkan (penting: sebelum /:id)
 router.get("/mine", protect, getMyQuizzes);
 
 // CRUD

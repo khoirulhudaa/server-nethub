@@ -9,8 +9,20 @@ import {
   changeUsername,
   changeEmail,
   changePassword,
+  guestLogin,
+  toggleFollow,
+  getMyFollowing,
+  getReadingList,
+  addToReadingList,
+  removeFromReadingList,
+  toggleReadingListComplete,
+  reorderReadingList,
+  updateReadingListItem,
+  getHighlights,
+  addHighlight,
+  removeHighlight,
 } from "../controllers/authController.js";
-import { protect } from "../middleware/auth.js";
+import { protect, protectWrite } from "../middleware/auth.js";
 
 const router = Router();
 
@@ -60,5 +72,18 @@ router.put(
   ],
   changePassword
 );
+
+router.post("/follow/:id", protect, protectWrite, toggleFollow);
+router.get("/me/following", protect, getMyFollowing);
+router.post("/guest", guestLogin);
+router.get("/me/reading-list", protect, getReadingList);
+router.post("/me/reading-list", protect, addToReadingList);
+router.delete("/me/reading-list/:postId", protect, removeFromReadingList);
+router.patch("/me/reading-list/:postId/complete", protect, toggleReadingListComplete);
+router.put("/me/reading-list", protect, reorderReadingList);
+router.patch("/me/reading-list/:postId", protect, updateReadingListItem);
+router.get("/me/highlights/:postId", protect, getHighlights);
+router.post("/me/highlights/:postId", protect, addHighlight);
+router.delete("/me/highlights/:postId", protect, removeHighlight);
 
 export default router;

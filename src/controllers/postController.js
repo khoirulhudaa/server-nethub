@@ -72,6 +72,28 @@ export const getPosts = async (req, res, next) => {
 
     const skip = (Number(page) - 1) * Number(limit);
 
+    // Kalau ada filter author → ambil semua post author (tidak dipisah pinned)
+    if (author) {
+      const [posts, total] = await Promise.all([
+        Post.find(filter)
+          .populate("author", "name avatar title")
+          .sort({ isPinned: -1, createdAt: -1 }) // pinned dulu
+          .skip(skip)
+          .limit(Number(limit)),
+        Post.countDocuments(filter),
+      ]);
+
+      return res.json({
+        pinned: [],
+        posts,
+        total,
+        page: Number(page),
+        pages: Math.ceil(total / Number(limit)),
+        categories: POST_CATEGORIES,
+      });
+    }
+
+    // Default behaviour (Dashboard)
     const [pinned, posts, total] = await Promise.all([
       Post.find({ ...filter, isPinned: true })
         .populate("author", "name avatar title")
@@ -93,6 +115,23 @@ export const getPosts = async (req, res, next) => {
       pages: Math.ceil(total / Number(limit)),
       categories: POST_CATEGORIES,
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// POST /posts/:id/view  atau  /posts/:slug/view
+export const incrementView = async (req, res, next) => {
+  try {
+    const post = await Post.findOneAndUpdate(
+      { slug: req.params.slug },
+      { $inc: { views: 1 } },
+      { new: true }
+    ).select("views");
+
+    if (!post) return res.status(404).json({ message: "Post not found" });
+
+    res.json({ views: post.views });
   } catch (err) {
     next(err);
   }
@@ -284,6 +323,37 @@ export const getMyBookmarks = async (req, res, next) => {
       options: { sort: { createdAt: -1 } },
     });
     res.json({ posts: user.bookmarks });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// GET /api/posts/trending?limit=12&period=7
+export const getTrendingPosts = async (req, res, next) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 12, 30);
+    const period = Number(req.query.period) || 30; // hari
+
+    const since = new Date();
+    since.setDate(since.getDate() - period);
+
+    const posts = await Post.find({
+      createdAt: { $gte: since },
+    })
+      .populate("author", "name avatar title")
+      .sort({ views: -1, likes: -1 }) // paling banyak views dulu
+      .limit(limit);
+
+    // Fallback: kalau belum ada post di periode ini, ambil all-time top
+    if (posts.length === 0) {
+      const allTime = await Post.find()
+        .populate("author", "name avatar title")
+        .sort({ views: -1 })
+        .limit(limit);
+      return res.json({ posts: allTime, period: "all-time" });
+    }
+
+    res.json({ posts, period: `${period}d` });
   } catch (err) {
     next(err);
   }
