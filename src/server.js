@@ -33,11 +33,8 @@ app.use("/api/hardware", collectionRoutes);
 app.use("/api", commentRoutes); // exposes /api/posts/:postId/comments and /api/comments/:id
 app.use("/api/quizzes", quizRoutes);                     // ← tambahkan
 app.use("/api/announcements", announcementRoutes);
-router.get("/", (req, res) => {
-  res.json({
-    message: "Test route berjalan dengan baik",
-    timestamp: new Date().toISOString(),
-  });
+app.get("/", (req, res) => {
+  res.json({ message: "Networking Hub API", status: "ok" });
 });
 
 router.post("/echo", (req, res) => {
