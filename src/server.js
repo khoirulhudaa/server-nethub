@@ -51,7 +51,7 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 if (process.env.NODE_ENV !== "production") {
-  app.listen(5000, () => console.log(`Networking Hub API running on port ${PORT}`));
+  app.listen(PORT, () => console.log(`Running on port ${PORT}`));
 }
 
-// export default app
+export default app
