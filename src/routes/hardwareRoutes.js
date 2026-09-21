@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { protect, requireSuperAdmin } from "../middleware/auth.js";
-import { createHardware, deleteHardware, getAllHardware, getHardwareById, getHardwareList, updateHardware } from "../controllers/HardwareController.js";
+import { createHardware, deleteHardware, getAllHardware, getHardwareById, getHardwareList, updateHardware } from "../controllers/hardwareController.js";
 
 const router = Router();
 
