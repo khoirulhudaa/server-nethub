@@ -15,12 +15,13 @@ const router = Router();
 // Public – untuk ditampilkan di frontend (TopBar / notifikasi)
 router.get("/", getActiveAnnouncements);
 
-// Public – detail 1 pengumuman
-router.get("/:id", getAnnouncementById);   // ← tambahkan di sini
-
 // SuperAdmin only
 router.get("/admin", protect, requireSuperAdmin, getAllAnnouncements);
+
 router.post("/", protect, requireSuperAdmin, createAnnouncement);
+
+// Public – detail 1 pengumuman
+router.get("/:id", getAnnouncementById);   // ← tambahkan di sini
 router.put("/:id", protect, requireSuperAdmin, updateAnnouncement);
 router.delete("/:id", protect, requireSuperAdmin, deleteAnnouncement);
 router.patch("/:id/toggle", protect, requireSuperAdmin, toggleActive);

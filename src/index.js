@@ -16,9 +16,19 @@ connectDB();
 
 const app = express();
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://texnet-hub.vercel.app",
+  ...(process.env.CLIENT_URL ? process.env.CLIENT_URL.split(",") : []),
+].map((o) => o.trim().replace(/\/$/, ""));
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: (origin, cb) => {
+      // origin kosong = request dari Postman/curl/server-to-server
+      if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+      return cb(null, false);
+    },
     credentials: true,
   })
 );
@@ -36,19 +46,12 @@ app.get("/", (req, res) => {
   res.json({ message: "Networking Hub API", status: "ok" });
 });
 
-// app.get("/api/health", (req, res) => res.json({ status: "ok", service: "networking-hub-api" }));
-// router.post("/echo", (req, res) => {
-//   res.json({ received: req.body });
-// });
-
-// app.use("/api/test", router);
-
-// app.use(notFound);
-// app.use(errorHandler);
+app.use(notFound);
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 if (process.env.NODE_ENV !== "production") {
-  app.listen(PORT, () => console.log(`Running on port ${PORT}`));
+  app.listen(5000, () => console.log(`Running on port ${PORT}`));
 }
 
 export default app;
