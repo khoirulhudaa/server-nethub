@@ -12,11 +12,13 @@ import {
   getMyBookmarks,
   getMyLikedPosts,
   getTrendingPosts,
+  getPostStats,
 } from "../controllers/postController.js";
 import { protect, optionalAuth } from "../middleware/auth.js";
 
 const router = Router();
 
+router.get("/stats", getPostStats);
 router.get("/", optionalAuth, getPosts);
 router.get("/trending", getTrendingPosts);   // ← tambah ini
 router.get("/mine", protect, getMyPosts);

@@ -99,13 +99,22 @@ export const getPosts = async (req, res, next) => {
         .populate("author", "name avatar title")
         .sort({ createdAt: -1 })
         .limit(4),
-      Post.find({ ...filter, isPinned: false })
+      Post.find({ ...filter, isPinned: false }) // ← exclude pinned, biar gak duplikat
         .populate("author", "name avatar title")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(Number(limit)),
-      Post.countDocuments({ ...filter, isPinned: false }),
+      Post.countDocuments({ ...filter, isPinned: false }), // ← total juga exclude pinned
     ]);
+
+    res.json({
+      pinned,
+      posts,
+      total,
+      page: Number(page),
+      pages: Math.ceil(total / Number(limit)),
+      categories: POST_CATEGORIES,
+    });
 
     res.json({
       pinned,
@@ -354,6 +363,29 @@ export const getTrendingPosts = async (req, res, next) => {
     }
 
     res.json({ posts, period: `${period}d` });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// di getPosts, atau endpoint khusus /posts/stats
+export const getPostStats = async (req, res, next) => {
+  try {
+    const [result] = await Post.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalGuides: { $sum: 1 },
+          totalReads: { $sum: "$views" },
+        },
+      },
+    ]);
+
+    res.json({
+      totalGuides: result?.totalGuides || 0,
+      totalReads: result?.totalReads || 0,
+      totalCategories: POST_CATEGORIES.length,
+    });
   } catch (err) {
     next(err);
   }

@@ -60,10 +60,20 @@ export const getAllAnnouncements = async (req, res, next) => {
 // POST /api/announcements
 export const createAnnouncement = async (req, res, next) => {
   try {
-    const { title, content, type, isActive, expiresAt } = req.body;
+    const { title, content, type, isActive, expiresAt, thumbnail, hashtags } =
+      req.body;
 
     if (!title?.trim() || !content?.trim()) {
       return res.status(400).json({ message: "Title and content are required" });
+    }
+
+    // Sanitize hashtags
+    let tags = [];
+    if (Array.isArray(hashtags)) {
+      tags = hashtags
+        .map((t) => String(t).trim().replace(/^#/, "").toLowerCase())
+        .filter(Boolean)
+        .slice(0, 4);
     }
 
     const announcement = await Announcement.create({
@@ -72,6 +82,8 @@ export const createAnnouncement = async (req, res, next) => {
       type: type || "info",
       isActive: isActive !== undefined ? isActive : true,
       expiresAt: expiresAt || null,
+      thumbnail: thumbnail || null,
+      hashtags: tags,
       createdBy: req.user._id,
     });
 
@@ -90,13 +102,24 @@ export const updateAnnouncement = async (req, res, next) => {
       return res.status(404).json({ message: "Announcement not found" });
     }
 
-    const { title, content, type, isActive, expiresAt } = req.body;
+    const { title, content, type, isActive, expiresAt, thumbnail, hashtags } =
+      req.body;
 
     if (title !== undefined) announcement.title = title.trim();
     if (content !== undefined) announcement.content = content.trim();
     if (type !== undefined) announcement.type = type;
     if (isActive !== undefined) announcement.isActive = isActive;
     if (expiresAt !== undefined) announcement.expiresAt = expiresAt || null;
+    if (thumbnail !== undefined) announcement.thumbnail = thumbnail || null;
+
+    if (hashtags !== undefined) {
+      announcement.hashtags = Array.isArray(hashtags)
+        ? hashtags
+            .map((t) => String(t).trim().replace(/^#/, "").toLowerCase())
+            .filter(Boolean)
+            .slice(0, 4)
+        : [];
+    }
 
     await announcement.save();
 

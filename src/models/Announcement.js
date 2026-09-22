@@ -13,17 +13,29 @@ const announcementSchema = new mongoose.Schema(
       required: [true, "Content is required"],
       trim: true,
     },
-    // Optional: tipe pengumuman
     type: {
       type: String,
       enum: ["info", "warning", "success", "important"],
       default: "info",
     },
+    // Thumbnail (URL setelah upload)
+    thumbnail: {
+      type: String,
+      default: null,
+    },
+    // Max 4 hashtag
+    hashtags: {
+      type: [String],
+      default: [],
+      validate: {
+        validator: (v) => v.length <= 4,
+        message: "Maksimal 4 hashtag",
+      },
+    },
     isActive: {
       type: Boolean,
       default: true,
     },
-    // Tanggal kadaluarsa (opsional)
     expiresAt: {
       type: Date,
       default: null,
@@ -37,7 +49,6 @@ const announcementSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Index untuk query aktif
 announcementSchema.index({ isActive: 1, expiresAt: 1, createdAt: -1 });
 
 export default mongoose.model("Announcement", announcementSchema);

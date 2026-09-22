@@ -51,7 +51,14 @@ const quizSchema = new mongoose.Schema(
       enum: ["Topology", "Maintenance", "Fixing", "Installation", "Hardware"],
       required: true,
     },
-    tags: [{ type: String, trim: true, lowercase: true }],
+    tags: {
+    type: [{ type: String, trim: true, lowercase: true }],
+      validate: {
+        validator: (v) => !v || v.length <= 4,
+        message: "Maksimal 4 tags",
+      },
+      default: [],
+    },
     coverImage: { type: String, default: "" },
     questions: {
       type: [QUESTION_SCHEMA],

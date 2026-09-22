@@ -5,17 +5,26 @@ import QuizComment from "../models/QuizComment.js";
 // ====================== CRUD ======================
 export const createQuiz = async (req, res, next) => {
   try {
-    const { title, description, category, tags, questions, isPublished } = req.body;
+    const { title, description, category, tags, questions, isPublished, coverImage } =
+      req.body;
 
     if (!questions || questions.length < 5 || questions.length > 20) {
       return res.status(400).json({ message: "Quiz harus berisi 5–20 soal" });
     }
 
+    const cleanTags = Array.isArray(tags)
+      ? tags
+          .map((t) => String(t).trim().replace(/^#/, "").toLowerCase())
+          .filter(Boolean)
+          .slice(0, 4)
+      : [];
+
     const quiz = await Quiz.create({
       title,
       description,
       category,
-      tags: Array.isArray(tags) ? tags : [],
+      tags: cleanTags,
+      coverImage: coverImage || "",
       questions,
       isPublished: Boolean(isPublished),
       author: req.user._id,
@@ -113,7 +122,18 @@ export const updateQuiz = async (req, res, next) => {
       "tags",
       "questions",
       "isPublished",
+      "coverImage",
     ];
+
+    if (req.body.tags !== undefined) {
+      quiz.tags = Array.isArray(req.body.tags)
+        ? req.body.tags
+            .map((t) => String(t).trim().replace(/^#/, "").toLowerCase())
+            .filter(Boolean)
+            .slice(0, 4)
+        : [];
+    }
+
     fields.forEach((f) => {
       if (req.body[f] !== undefined) quiz[f] = req.body[f];
     });
