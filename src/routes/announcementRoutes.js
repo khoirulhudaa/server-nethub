@@ -7,6 +7,7 @@ import {
   deleteAnnouncement,
   toggleActive,
   getAnnouncementById,
+  getAdminAnnouncements,
 } from "../controllers/announcementController.js";
 import { protect, requireSuperAdmin } from "../middleware/auth.js";
 
@@ -16,7 +17,7 @@ const router = Router();
 router.get("/", getActiveAnnouncements);
 
 // SuperAdmin only
-router.get("/admin", protect, requireSuperAdmin, getAllAnnouncements);
+router.get("/admin", protect, requireSuperAdmin, getAdminAnnouncements); // ← ganti ini
 
 router.post("/", protect, requireSuperAdmin, createAnnouncement);
 

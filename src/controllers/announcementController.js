@@ -161,3 +161,34 @@ export const toggleActive = async (req, res, next) => {
     next(err);
   }
 };
+
+export const getAdminAnnouncements = async (req, res, next) => {
+  try {
+    const { search, page = 1, limit = 9 } = req.query;
+    const filter = {};
+
+    if (search && search.trim()) {
+      filter.title = { $regex: search.trim(), $options: "i" }; // case-insensitive partial match
+    }
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const [announcements, total] = await Promise.all([
+      Announcement.find(filter)
+        .populate("createdBy", "name avatar")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(Number(limit)),
+      Announcement.countDocuments(filter),
+    ]);
+
+    res.json({
+      announcements,
+      total,
+      page: Number(page),
+      pages: Math.ceil(total / Number(limit)),
+    });
+  } catch (err) {
+    next(err);
+  }
+};

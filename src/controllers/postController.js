@@ -5,7 +5,6 @@ import User from "../models/User.js";
 
 export const createPost = async (req, res, next) => {
   try {
-    // createPost
     const { 
       title, 
       excerpt, 
@@ -16,10 +15,11 @@ export const createPost = async (req, res, next) => {
       hardwareMeshes, 
       gallery, 
       topology,
-      steps,           // ← baru
-      customTables,    // ← baru
-      flowchart,       // ← baru
-      referencesImages,          // ← tambah
+      steps,
+      customTables,
+      flowchart,
+      referencesImages,
+      codeBlocks,          // ← tambahkan ini
     } = req.body;
 
     const refs = Array.isArray(referencesImages) ? referencesImages : [];
@@ -52,6 +52,7 @@ export const createPost = async (req, res, next) => {
       flowchart: flowchart || { nodes: [], edges: [] },
       steps: Array.isArray(steps) ? steps : [],
       customTables: Array.isArray(customTables) ? customTables : [],
+      codeBlocks: Array.isArray(codeBlocks) ? codeBlocks : [],   // ← tambahkan ini
       author: req.user._id,
     });
 
@@ -62,12 +63,81 @@ export const createPost = async (req, res, next) => {
   }
 };
 
+// export const getPosts = async (req, res, next) => {
+//   try {
+//     const { category, search, author, page = 1, limit = 12 } = req.query;
+//     const filter = {};
+//     if (category && POST_CATEGORIES.includes(category)) filter.category = category;
+//     if (author) filter.author = author;
+//     if (search) filter.$text = { $search: search };
+
+//     const skip = (Number(page) - 1) * Number(limit);
+
+//     // Kalau ada filter author → ambil semua post author (tidak dipisah pinned)
+//     if (author) {
+//       const [posts, total] = await Promise.all([
+//         Post.find(filter)
+//           .populate("author", "name avatar title")
+//           .sort({ isPinned: -1, createdAt: -1 }) // pinned dulu
+//           .skip(skip)
+//           .limit(Number(limit)),
+//         Post.countDocuments(filter),
+//       ]);
+
+//       return res.json({
+//         pinned: [],
+//         posts,
+//         total,
+//         page: Number(page),
+//         pages: Math.ceil(total / Number(limit)),
+//         categories: POST_CATEGORIES,
+//       });
+//     }
+
+//     // Default behaviour (Dashboard)
+//     const [pinned, posts, total] = await Promise.all([
+//       Post.find({ ...filter, isPinned: true })
+//         .populate("author", "name avatar title")
+//         .sort({ createdAt: -1 })
+//         .limit(4),
+//       Post.find({ ...filter, isPinned: false }) // ← exclude pinned, biar gak duplikat
+//         .populate("author", "name avatar title")
+//         .sort({ createdAt: -1 })
+//         .skip(skip)
+//         .limit(Number(limit)),
+//       Post.countDocuments({ ...filter, isPinned: false }), // ← total juga exclude pinned
+//     ]);
+
+//     res.json({
+//       pinned,
+//       posts,
+//       total,
+//       page: Number(page),
+//       pages: Math.ceil(total / Number(limit)),
+//       categories: POST_CATEGORIES,
+//     });
+
+//     res.json({
+//       pinned,
+//       posts,
+//       total,
+//       page: Number(page),
+//       pages: Math.ceil(total / Number(limit)),
+//       categories: POST_CATEGORIES,
+//     });
+//   } catch (err) {
+//     next(err);
+//   }
+// };
+
 export const getPosts = async (req, res, next) => {
   try {
-    const { category, search, author, page = 1, limit = 12 } = req.query;
+    const { category, search, author, tag, page = 1, limit = 12 } = req.query;
     const filter = {};
+
     if (category && POST_CATEGORIES.includes(category)) filter.category = category;
     if (author) filter.author = author;
+    if (tag) filter.tags = tag.toLowerCase().trim(); // exact match pada array tags
     if (search) filter.$text = { $search: search };
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -77,7 +147,7 @@ export const getPosts = async (req, res, next) => {
       const [posts, total] = await Promise.all([
         Post.find(filter)
           .populate("author", "name avatar title")
-          .sort({ isPinned: -1, createdAt: -1 }) // pinned dulu
+          .sort({ isPinned: -1, createdAt: -1 })
           .skip(skip)
           .limit(Number(limit)),
         Post.countDocuments(filter),
@@ -93,28 +163,19 @@ export const getPosts = async (req, res, next) => {
       });
     }
 
-    // Default behaviour (Dashboard)
+    // Default behaviour (Dashboard) — tetap exclude pinned supaya tidak duplikat
     const [pinned, posts, total] = await Promise.all([
       Post.find({ ...filter, isPinned: true })
         .populate("author", "name avatar title")
         .sort({ createdAt: -1 })
         .limit(4),
-      Post.find({ ...filter, isPinned: false }) // ← exclude pinned, biar gak duplikat
+      Post.find({ ...filter, isPinned: false })
         .populate("author", "name avatar title")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(Number(limit)),
-      Post.countDocuments({ ...filter, isPinned: false }), // ← total juga exclude pinned
+      Post.countDocuments({ ...filter, isPinned: false }),
     ]);
-
-    res.json({
-      pinned,
-      posts,
-      total,
-      page: Number(page),
-      pages: Math.ceil(total / Number(limit)),
-      categories: POST_CATEGORIES,
-    });
 
     res.json({
       pinned,
@@ -156,7 +217,10 @@ export const getPostBySlug = async (req, res, next) => {
 
     if (!post) return res.status(404).json({ message: "Post not found" });
 
-    const related = await getRelatedPosts(post, 4);
+    // Ambil related, lalu buang yang isPinned = true
+    let related = await getRelatedPosts(post, 4);
+    related = related.filter((p) => !p.isPinned);
+
     res.json({ post, related });
   } catch (err) {
     next(err);
@@ -275,6 +339,25 @@ export const getMyPosts = async (req, res, next) => {
   try {
     const posts = await Post.find({ author: req.user._id }).sort({ createdAt: -1 });
     res.json({ posts });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getPostById = async (req, res, next) => {
+  try {
+    const post = await Post.findById(req.params.id).populate(
+      "author",
+      "name avatar title"
+    );
+    if (!post) return res.status(404).json({ message: "Post not found" });
+
+    // Opsional: pastikan hanya author yang bisa akses (untuk edit form)
+    if (String(post.author._id) !== String(req.user._id)) {
+      return res.status(403).json({ message: "You can only edit your own posts" });
+    }
+
+    res.json({ post });
   } catch (err) {
     next(err);
   }
