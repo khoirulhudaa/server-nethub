@@ -1,7 +1,18 @@
 import mongoose from "mongoose";
 import slugify from "slugify";
 
-const CATEGORIES = ["Topology", "Maintenance", "Fixing", "Installation", "Hardware"];
+const CATEGORIES = [
+  "Topology",
+  "Maintenance",
+  "Installation",
+  "Hardware",
+  "Eproc",
+  "E-kantin",
+  "EHRD",
+  "Security",
+  "General",
+  "Pemrograman",
+];
 
 // ===== NEW: Step-by-step =====
 const stepSchema = new mongoose.Schema(

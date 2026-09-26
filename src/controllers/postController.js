@@ -1,7 +1,7 @@
-import Post, { POST_CATEGORIES } from "../models/Post.js";
 import Comment from "../models/Comment.js";
-import { getRelatedPosts } from "../utils/recommend.js";
+import Post, { POST_CATEGORIES } from "../models/Post.js";
 import User from "../models/User.js";
+import { getRelatedPosts } from "../utils/recommend.js";
 
 export const createPost = async (req, res, next) => {
   try {
