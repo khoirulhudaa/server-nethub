@@ -10,8 +10,7 @@ const CATEGORIES = [
   "E-kantin",
   "EHRD",
   "Security",
-  "General",
-  "Pemrograman",
+  "Code",
 ];
 
 // ===== NEW: Step-by-step =====
