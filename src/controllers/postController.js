@@ -196,13 +196,13 @@ export const getPosts = async (req, res, next) => {
     const filter = {};
 
     if (category && POST_CATEGORIES.includes(category)) filter.category = category;
-    if (author) filter.author = author;
+    if (author) filter.author = author;                 // hanya kalau ada query ?author=
     if (tag) filter.tags = tag.toLowerCase().trim();
     if (search) filter.$text = { $search: search };
 
     const skip = (Number(page) - 1) * Number(limit);
 
-    // Kalau ada filter author → ambil semua post author (tidak dipisah pinned)
+    // Kalau ada filter author → ambil semua post author tersebut
     if (author) {
       const [posts, total] = await Promise.all([
         Post.find(filter)
@@ -225,6 +225,7 @@ export const getPosts = async (req, res, next) => {
 
     const hasCategoryOrSearch = Boolean(category || search);
 
+    // posts → SEMUA user (hanya exclude isPinned di overview biar tidak dobel)
     const postsFilter = hasCategoryOrSearch
       ? filter
       : { ...filter, isPinned: false };
@@ -233,17 +234,15 @@ export const getPosts = async (req, res, next) => {
       ? filter
       : { ...filter, isPinned: false };
 
-    // ===== PINNED HANYA MILIK USER YANG LOGIN =====
+    // pinned → HANYA milik user yang sedang login
     const pinnedFilter = {
       ...filter,
       isPinned: true,
     };
-
     if (req.user?._id) {
-      // User login → hanya ambil post yang dia pin sendiri
       pinnedFilter.author = req.user._id;
     } else {
-      // Guest / belum login → jangan tampilkan pinned sama sekali
+      // Guest → tidak ada pinned
       pinnedFilter._id = null;
     }
 
@@ -253,7 +252,7 @@ export const getPosts = async (req, res, next) => {
         .sort({ createdAt: -1 })
         .limit(4),
 
-      Post.find(postsFilter)
+      Post.find(postsFilter)                                 // ← tidak ada filter author
         .populate("author", "name avatar title")
         .sort({ isPinned: -1, createdAt: -1 })
         .skip(skip)
