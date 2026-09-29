@@ -130,6 +130,66 @@ export const createPost = async (req, res, next) => {
 //   }
 // };
 
+// export const getPosts = async (req, res, next) => {
+//   try {
+//     const { category, search, author, tag, page = 1, limit = 12 } = req.query;
+//     const filter = {};
+
+//     if (category && POST_CATEGORIES.includes(category)) filter.category = category;
+//     if (author) filter.author = author;
+//     if (tag) filter.tags = tag.toLowerCase().trim(); // exact match pada array tags
+//     if (search) filter.$text = { $search: search };
+
+//     const skip = (Number(page) - 1) * Number(limit);
+
+//     // Kalau ada filter author → ambil semua post author (tidak dipisah pinned)
+//     if (author) {
+//       const [posts, total] = await Promise.all([
+//         Post.find(filter)
+//           .populate("author", "name avatar title")
+//           .sort({ isPinned: -1, createdAt: -1 })
+//           .skip(skip)
+//           .limit(Number(limit)),
+//         Post.countDocuments(filter),
+//       ]);
+
+//       return res.json({
+//         pinned: [],
+//         posts,
+//         total,
+//         page: Number(page),
+//         pages: Math.ceil(total / Number(limit)),
+//         categories: POST_CATEGORIES,
+//       });
+//     }
+
+//     // Default behaviour (Dashboard) — tetap exclude pinned supaya tidak duplikat
+//     const [pinned, posts, total] = await Promise.all([
+//       Post.find({ ...filter, isPinned: true })
+//         .populate("author", "name avatar title")
+//         .sort({ createdAt: -1 })
+//         .limit(4),
+//       Post.find({ ...filter, isPinned: false })
+//         .populate("author", "name avatar title")
+//         .sort({ createdAt: -1 })
+//         .skip(skip)
+//         .limit(Number(limit)),
+//       Post.countDocuments({ ...filter, isPinned: false }),
+//     ]);
+
+//     res.json({
+//       pinned,
+//       posts,
+//       total,
+//       page: Number(page),
+//       pages: Math.ceil(total / Number(limit)),
+//       categories: POST_CATEGORIES,
+//     });
+//   } catch (err) {
+//     next(err);
+//   }
+// };
+
 export const getPosts = async (req, res, next) => {
   try {
     const { category, search, author, tag, page = 1, limit = 12 } = req.query;
@@ -137,7 +197,7 @@ export const getPosts = async (req, res, next) => {
 
     if (category && POST_CATEGORIES.includes(category)) filter.category = category;
     if (author) filter.author = author;
-    if (tag) filter.tags = tag.toLowerCase().trim(); // exact match pada array tags
+    if (tag) filter.tags = tag.toLowerCase().trim();
     if (search) filter.$text = { $search: search };
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -163,18 +223,33 @@ export const getPosts = async (req, res, next) => {
       });
     }
 
-    // Default behaviour (Dashboard) — tetap exclude pinned supaya tidak duplikat
+    // === Perubahan utama ===
+    // Jika ada category (atau search), JANGAN exclude isPinned
+    // supaya "Other guides" juga menampilkan yang di-pin
+    const hasCategoryOrSearch = Boolean(category || search);
+
+    const postsFilter = hasCategoryOrSearch
+      ? filter                          // semua post (pinned + unpinned)
+      : { ...filter, isPinned: false }; // overview: exclude pinned biar tidak duplikat
+
+    const totalFilter = hasCategoryOrSearch
+      ? filter
+      : { ...filter, isPinned: false };
+
     const [pinned, posts, total] = await Promise.all([
+      // Pinned tetap diambil (berguna untuk PinnedHero)
       Post.find({ ...filter, isPinned: true })
         .populate("author", "name avatar title")
         .sort({ createdAt: -1 })
         .limit(4),
-      Post.find({ ...filter, isPinned: false })
+
+      Post.find(postsFilter)
         .populate("author", "name avatar title")
-        .sort({ createdAt: -1 })
+        .sort({ isPinned: -1, createdAt: -1 }) // pinned di atas dulu
         .skip(skip)
         .limit(Number(limit)),
-      Post.countDocuments({ ...filter, isPinned: false }),
+
+      Post.countDocuments(totalFilter),
     ]);
 
     res.json({
