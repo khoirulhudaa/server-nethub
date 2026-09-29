@@ -223,29 +223,39 @@ export const getPosts = async (req, res, next) => {
       });
     }
 
-    // === Perubahan utama ===
-    // Jika ada category (atau search), JANGAN exclude isPinned
-    // supaya "Other guides" juga menampilkan yang di-pin
     const hasCategoryOrSearch = Boolean(category || search);
 
     const postsFilter = hasCategoryOrSearch
-      ? filter                          // semua post (pinned + unpinned)
-      : { ...filter, isPinned: false }; // overview: exclude pinned biar tidak duplikat
+      ? filter
+      : { ...filter, isPinned: false };
 
     const totalFilter = hasCategoryOrSearch
       ? filter
       : { ...filter, isPinned: false };
 
+    // ===== PINNED HANYA MILIK USER YANG LOGIN =====
+    const pinnedFilter = {
+      ...filter,
+      isPinned: true,
+    };
+
+    if (req.user?._id) {
+      // User login → hanya ambil post yang dia pin sendiri
+      pinnedFilter.author = req.user._id;
+    } else {
+      // Guest / belum login → jangan tampilkan pinned sama sekali
+      pinnedFilter._id = null;
+    }
+
     const [pinned, posts, total] = await Promise.all([
-      // Pinned tetap diambil (berguna untuk PinnedHero)
-      Post.find({ ...filter, isPinned: true })
+      Post.find(pinnedFilter)
         .populate("author", "name avatar title")
         .sort({ createdAt: -1 })
         .limit(4),
 
       Post.find(postsFilter)
         .populate("author", "name avatar title")
-        .sort({ isPinned: -1, createdAt: -1 }) // pinned di atas dulu
+        .sort({ isPinned: -1, createdAt: -1 })
         .skip(skip)
         .limit(Number(limit)),
 
