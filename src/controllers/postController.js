@@ -1,7 +1,27 @@
+import mongoose from "mongoose";
 import Comment from "../models/Comment.js";
 import Post, { POST_CATEGORIES } from "../models/Post.js";
 import User from "../models/User.js";
 import { getRelatedPosts } from "../utils/recommend.js";
+
+// Mengembalikan _id user yang valid, atau null untuk guest / belum login
+const getUid = (req) =>
+  req.user &&
+  !req.user.isGuest &&
+  req.user.role !== "guest" &&
+  mongoose.isValidObjectId(req.user._id)
+    ? req.user._id
+    : null;
+
+// Ubah dokumen jadi object dengan isPinned milik user ini
+const withPinned = (doc, uid) => {
+  const obj = typeof doc.toObject === "function" ? doc.toObject() : { ...doc };
+  obj.isPinned = uid
+    ? (obj.pinnedBy || []).some((id) => String(id) === String(uid))
+    : false;
+  delete obj.pinnedBy;
+  return obj;
+};
 
 export const createPost = async (req, res, next) => {
   try {
@@ -65,84 +85,17 @@ export const createPost = async (req, res, next) => {
 
 // export const getPosts = async (req, res, next) => {
 //   try {
-//     const { category, search, author, page = 1, limit = 12 } = req.query;
-//     const filter = {};
-//     if (category && POST_CATEGORIES.includes(category)) filter.category = category;
-//     if (author) filter.author = author;
-//     if (search) filter.$text = { $search: search };
-
-//     const skip = (Number(page) - 1) * Number(limit);
-
-//     // Kalau ada filter author → ambil semua post author (tidak dipisah pinned)
-//     if (author) {
-//       const [posts, total] = await Promise.all([
-//         Post.find(filter)
-//           .populate("author", "name avatar title")
-//           .sort({ isPinned: -1, createdAt: -1 }) // pinned dulu
-//           .skip(skip)
-//           .limit(Number(limit)),
-//         Post.countDocuments(filter),
-//       ]);
-
-//       return res.json({
-//         pinned: [],
-//         posts,
-//         total,
-//         page: Number(page),
-//         pages: Math.ceil(total / Number(limit)),
-//         categories: POST_CATEGORIES,
-//       });
-//     }
-
-//     // Default behaviour (Dashboard)
-//     const [pinned, posts, total] = await Promise.all([
-//       Post.find({ ...filter, isPinned: true })
-//         .populate("author", "name avatar title")
-//         .sort({ createdAt: -1 })
-//         .limit(4),
-//       Post.find({ ...filter, isPinned: false }) // ← exclude pinned, biar gak duplikat
-//         .populate("author", "name avatar title")
-//         .sort({ createdAt: -1 })
-//         .skip(skip)
-//         .limit(Number(limit)),
-//       Post.countDocuments({ ...filter, isPinned: false }), // ← total juga exclude pinned
-//     ]);
-
-//     res.json({
-//       pinned,
-//       posts,
-//       total,
-//       page: Number(page),
-//       pages: Math.ceil(total / Number(limit)),
-//       categories: POST_CATEGORIES,
-//     });
-
-//     res.json({
-//       pinned,
-//       posts,
-//       total,
-//       page: Number(page),
-//       pages: Math.ceil(total / Number(limit)),
-//       categories: POST_CATEGORIES,
-//     });
-//   } catch (err) {
-//     next(err);
-//   }
-// };
-
-// export const getPosts = async (req, res, next) => {
-//   try {
 //     const { category, search, author, tag, page = 1, limit = 12 } = req.query;
 //     const filter = {};
 
 //     if (category && POST_CATEGORIES.includes(category)) filter.category = category;
 //     if (author) filter.author = author;
-//     if (tag) filter.tags = tag.toLowerCase().trim(); // exact match pada array tags
+//     if (tag) filter.tags = tag.toLowerCase().trim();
 //     if (search) filter.$text = { $search: search };
 
 //     const skip = (Number(page) - 1) * Number(limit);
 
-//     // Kalau ada filter author → ambil semua post author (tidak dipisah pinned)
+//     // Query berdasarkan author (halaman profil): urutan pinned dulu
 //     if (author) {
 //       const [posts, total] = await Promise.all([
 //         Post.find(filter)
@@ -163,18 +116,72 @@ export const createPost = async (req, res, next) => {
 //       });
 //     }
 
-//     // Default behaviour (Dashboard) — tetap exclude pinned supaya tidak duplikat
+//     const hasCategoryOrSearch = Boolean(category || search);
+
+//     // Guest = tidak login ATAU akun guest
+//     const isGuest =
+//       !req.user ||
+//       req.user.isGuest ||
+//       req.user.role === "guest" ||
+//       !mongoose.isValidObjectId(req.user._id);
+
+//     // ===== GUEST: semua post tampil, tidak ada yang dianggap pinned =====
+//     if (isGuest) {
+//       const [posts, total] = await Promise.all([
+//         Post.find(filter)
+//           .populate("author", "name avatar title")
+//           .sort({ createdAt: -1 })
+//           .skip(skip)
+//           .limit(Number(limit)),
+//         Post.countDocuments(filter),
+//       ]);
+
+//       // Paksa isPinned = false supaya UI tidak menampilkan badge pinned
+//       const normalized = posts.map((p) => ({ ...p.toObject(), isPinned: false }));
+
+//       return res.json({
+//         pinned: [],
+//         posts: normalized,
+//         total,
+//         page: Number(page),
+//         pages: Math.ceil(total / Number(limit)),
+//         categories: POST_CATEGORIES,
+//       });
+//     }
+
+//     // ===== USER LOGIN =====
+//     // Overview: exclude hanya pinned milik user yang login (supaya tidak dobel dengan PinnedHero).
+//     // Post pinned milik orang lain tetap muncul di Other guides.
+//     let postsFilter = { ...filter };
+//     let totalFilter = { ...filter };
+
+//     if (!hasCategoryOrSearch) {
+//       postsFilter = {
+//         ...filter,
+//         $or: [
+//           { isPinned: false },
+//           { isPinned: true, author: { $ne: req.user._id } },
+//         ],
+//       };
+//       totalFilter = postsFilter;
+//     }
+
+//     // Pinned hanya milik user yang login
+//     const pinnedFilter = { ...filter, isPinned: true, author: req.user._id };
+
 //     const [pinned, posts, total] = await Promise.all([
-//       Post.find({ ...filter, isPinned: true })
+//       Post.find(pinnedFilter)
 //         .populate("author", "name avatar title")
 //         .sort({ createdAt: -1 })
 //         .limit(4),
-//       Post.find({ ...filter, isPinned: false })
+
+//       Post.find(postsFilter)
 //         .populate("author", "name avatar title")
 //         .sort({ createdAt: -1 })
 //         .skip(skip)
 //         .limit(Number(limit)),
-//       Post.countDocuments({ ...filter, isPinned: false }),
+
+//       Post.countDocuments(totalFilter),
 //     ]);
 
 //     res.json({
@@ -189,6 +196,7 @@ export const createPost = async (req, res, next) => {
 //     next(err);
 //   }
 // };
+
 export const getPosts = async (req, res, next) => {
   try {
     const { category, search, author, tag, page = 1, limit = 12 } = req.query;
@@ -200,80 +208,75 @@ export const getPosts = async (req, res, next) => {
     if (search) filter.$text = { $search: search };
 
     const skip = (Number(page) - 1) * Number(limit);
+    const uid = getUid(req);
+    const meta = (total) => ({
+      total,
+      page: Number(page),
+      pages: Math.ceil(total / Number(limit)),
+      categories: POST_CATEGORIES,
+    });
 
+    // Halaman profil author
     if (author) {
       const [posts, total] = await Promise.all([
         Post.find(filter)
           .populate("author", "name avatar title")
-          .sort({ isPinned: -1, createdAt: -1 })
+          .sort({ createdAt: -1 })
           .skip(skip)
           .limit(Number(limit)),
         Post.countDocuments(filter),
       ]);
-
       return res.json({
         pinned: [],
-        posts,
-        total,
-        page: Number(page),
-        pages: Math.ceil(total / Number(limit)),
-        categories: POST_CATEGORIES,
+        posts: posts.map((p) => withPinned(p, uid)),
+        ...meta(total),
       });
     }
 
+    // Guest: semua post, tidak ada pinned
+    if (!uid) {
+      const [posts, total] = await Promise.all([
+        Post.find(filter)
+          .populate("author", "name avatar title")
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(Number(limit)),
+        Post.countDocuments(filter),
+      ]);
+      return res.json({
+        pinned: [],
+        posts: posts.map((p) => withPinned(p, null)),
+        ...meta(total),
+      });
+    }
+
+    // User login
     const hasCategoryOrSearch = Boolean(category || search);
 
-    // ===== PERUBAHAN PENTING =====
-    // Overview: exclude HANYA pinned milik user yang login (supaya tidak dobel dengan PinnedHero)
-    // Post pinned milik orang lain tetap muncul di Other guides
-    let postsFilter = { ...filter };
-    let totalFilter = { ...filter };
+    // Overview: sembunyikan post yang sudah saya pin (sudah tampil di PinnedHero)
+    const postsFilter = hasCategoryOrSearch
+      ? { ...filter }
+      : { ...filter, pinnedBy: { $ne: uid } };
 
-    if (!hasCategoryOrSearch && req.user?._id) {
-      // Jangan tampilkan post yang di-pin oleh user sendiri di list biasa
-      postsFilter = {
-        ...filter,
-        $or: [
-          { isPinned: false },
-          { isPinned: true, author: { $ne: req.user._id } },
-        ],
-      };
-      totalFilter = postsFilter;
-    }
-
-    // pinned → HANYA milik user yang login
-    const pinnedFilter = {
-      ...filter,
-      isPinned: true,
-    };
-    if (req.user?._id) {
-      pinnedFilter.author = req.user._id;
-    } else {
-      pinnedFilter._id = null; // guest → kosong
-    }
+    const pinnedFilter = { ...filter, pinnedBy: uid };
 
     const [pinned, posts, total] = await Promise.all([
       Post.find(pinnedFilter)
         .populate("author", "name avatar title")
         .sort({ createdAt: -1 })
         .limit(4),
-
       Post.find(postsFilter)
         .populate("author", "name avatar title")
-        .sort({ createdAt: -1 })          // cukup sort by date saja
+        .sort({ createdAt: -1 })
         .skip(skip)
         .limit(Number(limit)),
-
-      Post.countDocuments(totalFilter),
+      Post.countDocuments(postsFilter),
     ]);
 
     res.json({
-      pinned,
-      posts,
-      total,
-      page: Number(page),
-      pages: Math.ceil(total / Number(limit)),
-      categories: POST_CATEGORIES,
+      pinned: pinned.map((p) => withPinned(p, uid)),
+      posts: posts.map((p) => withPinned(p, uid)),
+      ...meta(total),
     });
   } catch (err) {
     next(err);
@@ -297,6 +300,26 @@ export const incrementView = async (req, res, next) => {
   }
 };
 
+// export const getPostBySlug = async (req, res, next) => {
+//   try {
+//     const post = await Post.findOneAndUpdate(
+//       { slug: req.params.slug },
+//       { $inc: { views: 1 } },
+//       { new: true }
+//     ).populate("author", "name avatar title bio");
+
+//     if (!post) return res.status(404).json({ message: "Post not found" });
+
+//     // Ambil related, lalu buang yang isPinned = true
+//     let related = await getRelatedPosts(post, 4);
+//     related = related.filter((p) => !p.isPinned);
+
+//     res.json({ post, related });
+//   } catch (err) {
+//     next(err);
+//   }
+// };
+
 export const getPostBySlug = async (req, res, next) => {
   try {
     const post = await Post.findOneAndUpdate(
@@ -307,11 +330,10 @@ export const getPostBySlug = async (req, res, next) => {
 
     if (!post) return res.status(404).json({ message: "Post not found" });
 
-    // Ambil related, lalu buang yang isPinned = true
-    let related = await getRelatedPosts(post, 4);
-    related = related.filter((p) => !p.isPinned);
+    const uid = getUid(req);
+    const related = (await getRelatedPosts(post, 4)).map((p) => withPinned(p, uid));
 
-    res.json({ post, related });
+    res.json({ post: withPinned(post, uid), related });
   } catch (err) {
     next(err);
   }
@@ -386,14 +408,22 @@ export const deletePost = async (req, res, next) => {
 
 export const togglePin = async (req, res, next) => {
   try {
-    const post = await Post.findById(req.params.id);
-    if (!post) return res.status(404).json({ message: "Post not found" });
-    if (String(post.author) !== String(req.user._id)) {
-      return res.status(403).json({ message: "You can only pin your own posts" });
-    }
-    post.isPinned = !post.isPinned;
-    await post.save();
-    res.json({ post });
+    const uid = getUid(req);
+    if (!uid) return res.status(401).json({ message: "Login dulu untuk pin guide" });
+
+    const existing = await Post.findById(req.params.id).select("pinnedBy");
+    if (!existing) return res.status(404).json({ message: "Post not found" });
+
+    const alreadyPinned = existing.pinnedBy.some((id) => String(id) === String(uid));
+    const op = alreadyPinned ? "$pull" : "$addToSet";
+
+    await Post.findByIdAndUpdate(
+      req.params.id,
+      { [op]: { pinnedBy: uid } },
+      { timestamps: false } // supaya updatedAt tidak berubah
+    );
+
+    res.json({ isPinned: !alreadyPinned });
   } catch (err) {
     next(err);
   }

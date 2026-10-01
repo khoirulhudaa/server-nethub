@@ -23,7 +23,8 @@ router.get("/stats", getPostStats);
 router.get("/", optionalAuth, getPosts);
 router.get("/trending", getTrendingPosts);   // ← tambah ini
 router.get("/mine", protect, getMyPosts);
-router.get("/:slug", getPostBySlug);
+// router.get("/:slug", getPostBySlug);
+router.get("/:slug", optionalAuth, getPostBySlug);
 router.post("/", protect, createPost);
 router.put("/:id", protect, updatePost);
 router.delete("/:id", protect, deletePost);
