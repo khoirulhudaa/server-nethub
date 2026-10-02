@@ -21,6 +21,7 @@ const withPinned = (doc, uid) => {
     ? (obj.pinnedBy || []).some((id) => String(id) === String(uid))
     : false;
   delete obj.pinnedBy;
+  delete obj.pinTimes;
   return obj;
 };
 
@@ -155,11 +156,8 @@ export const getPosts = async (req, res, next) => {
 
     const pinnedFilter = { ...filter, pinnedBy: uid };
 
-    const [pinned, posts, total] = await Promise.all([
-      Post.find(pinnedFilter)
-        .populate("author", "name avatar title")
-        .sort({ createdAt: -1 })
-        .limit(4),
+    const [pinnedRaw, posts, total] = await Promise.all([
+      Post.find(pinnedFilter).populate("author", "name avatar title"),   // hapus .sort/.limit
       Post.find(postsFilter)
         .populate("author", "name avatar title")
         .sort({ createdAt: -1 })
@@ -167,6 +165,10 @@ export const getPosts = async (req, res, next) => {
         .limit(Number(limit)),
       Post.countDocuments(postsFilter),
     ]);
+
+    const key = String(uid);
+    const pinTime = (p) => p.pinTimes?.get(key)?.getTime?.() ?? 0;
+    const pinned = pinnedRaw.sort((a, b) => pinTime(b) - pinTime(a)).slice(0, 4);
 
     res.json({
       pinned: pinned.map((p) => withPinned(p, uid)),
@@ -297,24 +299,68 @@ export const deletePost = async (req, res, next) => {
   }
 };
 
+const MAX_PINS = 4;
+
 export const togglePin = async (req, res, next) => {
   try {
     const uid = getUid(req);
     if (!uid) return res.status(401).json({ message: "Login dulu untuk pin guide" });
 
-    const existing = await Post.findById(req.params.id).select("pinnedBy");
-    if (!existing) return res.status(404).json({ message: "Post not found" });
+    const { id } = req.params;
+    const replace = req.body?.replace === true;
+    const key = String(uid);
 
-    const alreadyPinned = existing.pinnedBy.some((id) => String(id) === String(uid));
-    const op = alreadyPinned ? "$pull" : "$addToSet";
+    const target = await Post.findById(id).select("pinnedBy");
+    if (!target) return res.status(404).json({ message: "Post not found" });
+
+    const alreadyPinned = target.pinnedBy.some((x) => String(x) === key);
+
+    // ===== UNPIN =====
+    if (alreadyPinned) {
+      await Post.findByIdAndUpdate(
+        id,
+        { $pull: { pinnedBy: uid }, $unset: { [`pinTimes.${key}`]: 1 } },
+        { timestamps: false }
+      );
+      return res.json({ isPinned: false, unpinnedIds: [] });
+    }
+
+    // ===== PIN =====
+    const myPinned = await Post.find({ pinnedBy: uid }).select("title createdAt pinTimes");
+    let unpinnedIds = [];
+
+    if (myPinned.length >= MAX_PINS) {
+      const time = (p) => p.pinTimes?.get(key)?.getTime?.() ?? 0;
+      const sorted = [...myPinned].sort(
+        (a, b) => time(a) - time(b) || a.createdAt - b.createdAt
+      );
+
+      if (!replace) {
+        const oldest = sorted[0];
+        return res.status(409).json({
+          code: "PIN_LIMIT",
+          message: `Pinned sudah penuh (maks. ${MAX_PINS})`,
+          oldest: { _id: oldest._id, title: oldest.title },
+        });
+      }
+
+      // Lepas pin paling lama (slice jaga-jaga kalau data lama > MAX_PINS)
+      const toRemove = sorted.slice(0, myPinned.length - MAX_PINS + 1);
+      unpinnedIds = toRemove.map((p) => p._id);
+      await Post.updateMany(
+        { _id: { $in: unpinnedIds } },
+        { $pull: { pinnedBy: uid }, $unset: { [`pinTimes.${key}`]: 1 } },
+        { timestamps: false }
+      );
+    }
 
     await Post.findByIdAndUpdate(
-      req.params.id,
-      { [op]: { pinnedBy: uid } },
-      { timestamps: false } // supaya updatedAt tidak berubah
+      id,
+      { $addToSet: { pinnedBy: uid }, $set: { [`pinTimes.${key}`]: new Date() } },
+      { timestamps: false }
     );
 
-    res.json({ isPinned: !alreadyPinned });
+    res.json({ isPinned: true, unpinnedIds });
   } catch (err) {
     next(err);
   }
@@ -340,13 +386,12 @@ export const toggleLike = async (req, res, next) => {
       User.findByIdAndUpdate(uid, { [op]: { likedPosts: postId } }),
     ]);
 
-    const isLiked = null;
     await logActivity({
-      userId: req.user._id,
-      action: isLiked ? "like" : "unlike",
+      userId: uid,
+      action: alreadyLiked ? "unlike" : "like",
       targetType: "post",
-      targetId: post._id,
-      metadata: { title: post.title },
+      targetId: existingPost._id,
+      metadata: { title: existingPost.title },
       req,
     });
     res.json({ likesCount: updatedPost.likes.length, liked: !alreadyLiked });
