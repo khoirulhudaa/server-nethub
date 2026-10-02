@@ -3,6 +3,7 @@ import Comment from "../models/Comment.js";
 import Post, { POST_CATEGORIES } from "../models/Post.js";
 import User from "../models/User.js";
 import { getRelatedPosts } from "../utils/recommend.js";
+import { logActivity } from "../utils/logActivity.js";
 
 // Mengembalikan _id user yang valid, atau null untuk guest / belum login
 const getUid = (req) =>
@@ -77,6 +78,14 @@ export const createPost = async (req, res, next) => {
     });
 
     const populated = await post.populate("author", "name avatar title");
+    await logActivity({
+      userId: req.user._id,
+      action: "create_post",
+      targetType: "post",
+      targetId: post._id,
+      metadata: { title: post.title, slug: post.slug },
+      req,
+    });
     res.status(201).json({ post: populated });
   } catch (err) {
     next(err);
@@ -241,6 +250,14 @@ export const updatePost = async (req, res, next) => {
     });
 
     await post.save();
+    await logActivity({
+      userId: req.user._id,
+      action: "update_post",
+      targetType: "post",
+      targetId: post._id,
+      metadata: { title: post.title },
+      req,
+    });
     res.json({ post });
   } catch (err) {
     next(err);
@@ -266,6 +283,14 @@ export const deletePost = async (req, res, next) => {
       ),
     ]);
 
+    await logActivity({
+      userId: req.user._id,
+      action: "delete_post",
+      targetType: "post",
+      targetId: post._id,
+      metadata: { title: post.title },
+      req,
+    });
     res.json({ message: "Post deleted" });
   } catch (err) {
     next(err);
@@ -315,6 +340,15 @@ export const toggleLike = async (req, res, next) => {
       User.findByIdAndUpdate(uid, { [op]: { likedPosts: postId } }),
     ]);
 
+    const isLiked = null;
+    await logActivity({
+      userId: req.user._id,
+      action: isLiked ? "like" : "unlike",
+      targetType: "post",
+      targetId: post._id,
+      metadata: { title: post.title },
+      req,
+    });
     res.json({ likesCount: updatedPost.likes.length, liked: !alreadyLiked });
   } catch (err) {
     next(err);

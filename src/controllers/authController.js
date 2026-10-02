@@ -2,6 +2,7 @@ import { validationResult } from "express-validator";
 import User from "../models/User.js";
 import { generateToken } from "../utils/generateToken.js";
 import jwt from 'jsonwebtoken';
+import { logActivity } from "../utils/logActivity.js";
 
 export const register = async (req, res, next) => {
   try {
@@ -31,7 +32,16 @@ export const login = async (req, res, next) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
     const token = generateToken(user._id);
+    // Di dalam login (setelah sukses)
+    await logActivity({
+      userId: user._id,
+      action: "login",
+      metadata: { method: "email" },
+      req,
+    });
     res.json({ token, user: user.toSafeObject() });
+
+    // Di guestLogin (opsional, biasanya tidak perlu log guest)
   } catch (err) {
     next(err);
   }

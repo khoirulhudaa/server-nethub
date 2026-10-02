@@ -1,5 +1,6 @@
 import Comment from "../models/Comment.js";
 import Post from "../models/Post.js";
+import { logActivity } from "../utils/logActivity.js";
 
 // Builds a nested tree from a flat list of comments (each with a `parent` ref).
 const buildTree = (comments) => {
@@ -50,6 +51,14 @@ export const createComment = async (req, res, next) => {
       parent: parent || null,
     });
     const populated = await comment.populate("author", "name avatar");
+    await logActivity({
+      userId: req.user._id,
+      action: "comment",
+      targetType: "comment",
+      targetId: comment._id,
+      metadata: { postId: post._id, postTitle: post.title, preview: comment.content.slice(0, 80) },
+      req,
+    });
     res.status(201).json({ comment: populated });
   } catch (err) {
     next(err);
@@ -65,6 +74,14 @@ export const deleteComment = async (req, res, next) => {
     }
     // Delete the comment and any replies pointing at it (one level of cascade).
     await Comment.deleteMany({ $or: [{ _id: comment._id }, { parent: comment._id }] });
+    await logActivity({
+      userId: req.user._id,
+      action: "delete_comment",
+      targetType: "comment",
+      targetId: comment._id,
+      metadata: { postId: comment.post },
+      req,
+    });
     res.json({ message: "Comment deleted" });
   } catch (err) {
     next(err);
