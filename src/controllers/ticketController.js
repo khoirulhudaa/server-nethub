@@ -233,50 +233,50 @@ export const getTicketById = async (req, res, next) => {
 };
 
 // ====================== UPDATE STATUS ======================
-export const updateTicketStatus = async (req, res, next) => {
-  try {
-    const { status, note, usedGuide, solutionNote } = req.body;
-    const ticket = await Ticket.findById(req.params.id);
+// export const updateTicketStatus = async (req, res, next) => {
+//   try {
+//     const { status, note, usedGuide, solutionNote } = req.body;
+//     const ticket = await Ticket.findById(req.params.id);
 
-    if (!ticket) return res.status(404).json({ message: "Tiket tidak ditemukan" });
+//     if (!ticket) return res.status(404).json({ message: "Tiket tidak ditemukan" });
 
-    const isAdmin = req.user.role === "superAdmin" || req.user.role === "admin";
-    if (!isAdmin) {
-      return res.status(403).json({ message: "Hanya admin yang boleh ubah status" });
-    }
+//     const isAdmin = req.user.role === "superAdmin" || req.user.role === "admin";
+//     if (!isAdmin) {
+//       return res.status(403).json({ message: "Hanya admin yang boleh ubah status" });
+//     }
 
-    if (!TICKET_STATUS_LIST.includes(status)) {
-      return res.status(400).json({ message: "Status tidak valid" });
-    }
+//     if (!TICKET_STATUS_LIST.includes(status)) {
+//       return res.status(400).json({ message: "Status tidak valid" });
+//     }
 
-    // Kosongkan AnyDesk saat selesai / ditutup
-    if (["Selesai", "Ditutup"].includes(status)) {
-      ticket.anydeskNumber = "";
-      ticket.anydeskPassword = "";
-    }
+//     // Kosongkan AnyDesk saat selesai / ditutup
+//     if (["Selesai", "Ditutup"].includes(status)) {
+//       ticket.anydeskNumber = "";
+//       ticket.anydeskPassword = "";
+//     }
 
-    ticket.status = status;
-    if (usedGuide) ticket.usedGuide = usedGuide;
-    if (solutionNote) ticket.solutionNote = solutionNote;
+//     ticket.status = status;
+//     if (usedGuide) ticket.usedGuide = usedGuide;
+//     if (solutionNote) ticket.solutionNote = solutionNote;
 
-    ticket.statusHistory.push({
-      status,
-      changedBy: req.user._id,
-      note: note || "",
-    });
+//     ticket.statusHistory.push({
+//       status,
+//       changedBy: req.user._id,
+//       note: note || "",
+//     });
 
-    await ticket.save();
+//     await ticket.save();
 
-    const populated = await Ticket.findById(ticket._id)
-      .populate("createdBy", "name avatar")
-      .populate("assignedTo", "name avatar")
-      .populate("usedGuide", "title slug");
+//     const populated = await Ticket.findById(ticket._id)
+//       .populate("createdBy", "name avatar")
+//       .populate("assignedTo", "name avatar")
+//       .populate("usedGuide", "title slug");
 
-    res.json({ ticket: populated });
-  } catch (err) {
-    next(err);
-  }
-};
+//     res.json({ ticket: populated });
+//   } catch (err) {
+//     next(err);
+//   }
+// };
 
 // ====================== ADD COMMENT ======================
 export const addTicketComment = async (req, res, next) => {
@@ -340,18 +340,65 @@ export const getPublicTicket = async (req, res, next) => {
       return res.status(404).json({ message: "Tiket tidak ditemukan" });
     }
 
-    // Sembunyikan komentar internal dari guest
     const publicComments = (ticket.comments || []).filter((c) => !c.isInternal);
 
     res.json({
       ticket: {
         ...ticket.toObject(),
         comments: publicComments,
-        // Jangan kirim anydesk ke public
-        anydeskNumber: undefined,
-        anydeskPassword: undefined,
       },
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateTicketStatus = async (req, res, next) => {
+  try {
+    const { status, note, usedGuide, solutionNote } = req.body;
+    const ticket = await Ticket.findById(req.params.id);
+
+    if (!ticket) {
+      return res.status(404).json({ message: "Tiket tidak ditemukan" });
+    }
+
+    const isAdmin =
+      req.user.role === "superAdmin" || req.user.role === "admin";
+    if (!isAdmin) {
+      return res.status(403).json({ message: "Hanya admin yang boleh ubah status" });
+    }
+
+    if (!TICKET_STATUS_LIST.includes(status)) {
+      return res.status(400).json({ message: "Status tidak valid" });
+    }
+
+    // Kosongkan AnyDesk saat selesai / ditutup
+    if (["Selesai", "Ditutup"].includes(status)) {
+      ticket.anydeskNumber = "";
+      ticket.anydeskPassword = "";
+    }
+
+    ticket.status = status;
+    if (usedGuide) ticket.usedGuide = usedGuide;
+    if (solutionNote) ticket.solutionNote = solutionNote;
+
+    // WAJIB: catat ke history
+    ticket.statusHistory.push({
+      status,
+      changedBy: req.user._id,
+      changedAt: new Date(),
+      note: note || "",
+    });
+
+    await ticket.save();
+
+    const populated = await Ticket.findById(ticket._id)
+      .populate("createdBy", "name avatar")
+      .populate("assignedTo", "name avatar")
+      .populate("usedGuide", "title slug")
+      .populate("statusHistory.changedBy", "name");
+
+    res.json({ ticket: populated });
   } catch (err) {
     next(err);
   }
