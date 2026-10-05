@@ -14,6 +14,7 @@ export const createTicket = async (req, res, next) => {
       description,
       category,
       sinceWhen,
+      requesterName,
       location,
       pcOwner,
       computerName,
@@ -27,11 +28,12 @@ export const createTicket = async (req, res, next) => {
       return res.status(400).json({ message: "Field wajib belum lengkap" });
     }
 
-    const ticket = await Ticket.create({
+    const ticketData = {
       title: title.trim(),
       description: description.trim(),
       category,
       sinceWhen,
+      requesterName: user?.name || "",
       location,
       pcOwner,
       computerName: computerName || "",
@@ -39,35 +41,48 @@ export const createTicket = async (req, res, next) => {
       anydeskPassword: anydeskPassword || "",
       priority: priority || "Medium",
       attachments: attachments || [],
-      createdBy: req.user._id,
       statusHistory: [
         {
           status: "Baru",
-          changedBy: req.user._id,
-          note: "Tiket dibuat",
+          changedBy: req.user?._id || null,
+          note: req.user ? "Tiket dibuat" : "Tiket dibuat oleh guest",
         },
       ],
-    });
+    };
 
-    const admins = await User.find({
-        role: { $in: ["admin", "superAdmin"] },
-    }).select("_id");
-
-    // Buat notifikasi untuk setiap admin
-    const notifications = admins.map((admin) => ({
-        recipient: admin._id,
-        type: "new_ticket",
-        title: "Tiket Baru Masuk",
-        message: `${populated.createdBy?.name || "User"} membuat tiket: ${populated.title}`,
-        link: `/tickets/${populated._id}`,
-        meta: { ticketId: populated._id },
-    }));
-
-    if (notifications.length > 0) {
-        await Notification.insertMany(notifications);
+    // Hanya isi createdBy kalau user login
+    if (req.user?._id) {
+      ticketData.createdBy = req.user._id;
     }
 
+    const ticket = await Ticket.create(ticketData);
+
     const populated = await ticket.populate("createdBy", "name avatar title");
+
+    // ===== Buat notifikasi untuk Admin =====
+    try {
+      const admins = await User.find({
+        role: { $in: ["admin", "superAdmin"] },
+      }).select("_id");
+
+      if (admins.length > 0) {
+        const notifications = admins.map((admin) => ({
+          recipient: admin._id,
+          type: "new_ticket",
+          title: "Tiket Baru Masuk",
+          message: `${pcOwner} membuat tiket: ${ticket.title}`,
+          link: `/tickets/${ticket._id}`,
+          meta: { ticketId: ticket._id },
+        }));
+
+        await Notification.insertMany(notifications);
+      }
+    } catch (notifErr) {
+      console.error("Gagal membuat notifikasi:", notifErr.message);
+    }
+
+    // (Opsional) Kirim Telegram / WhatsApp di sini juga
+
     res.status(201).json({ ticket: populated });
   } catch (err) {
     next(err);

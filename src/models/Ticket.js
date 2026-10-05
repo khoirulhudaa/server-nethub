@@ -60,9 +60,10 @@ const ticketSchema = new mongoose.Schema(
 
     // Attachment
     attachments: [attachmentSchema],
+    requesterName: { type: String, required: true },
 
     // Relasi
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: false },
     assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
 
     // Guides yang dipakai saat resolve

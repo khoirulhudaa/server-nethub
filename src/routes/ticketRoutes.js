@@ -7,14 +7,14 @@ import {
   addTicketComment,
   getTicketOptions,
 } from "../controllers/ticketController.js";
-import { protect } from "../middleware/auth.js";
+import { protect, optionalAuth } from "../middleware/auth.js"; // pastikan ada optionalAuth
 
 const router = Router();
 
-router.get("/options", protect, getTicketOptions);
-router.post("/", protect, createTicket);
-router.get("/", protect, getTickets);
-router.get("/:id", protect, getTicketById);
+router.get("/options", getTicketOptions);          // public
+router.post("/", optionalAuth, createTicket);      // bisa login / guest
+router.get("/", protect, getTickets);              // hanya login
+router.get("/:id", protect, getTicketById);        // hanya login
 router.patch("/:id/status", protect, updateTicketStatus);
 router.post("/:id/comments", protect, addTicketComment);
 
