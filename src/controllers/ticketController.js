@@ -24,7 +24,16 @@ export const createTicket = async (req, res, next) => {
       attachments,
     } = req.body;
 
-    if (!title?.trim() || !description?.trim() || !category || !sinceWhen || !location || !pcOwner) {
+    // Validasi field wajib
+    if (
+      !title?.trim() ||
+      !description?.trim() ||
+      !category ||
+      !sinceWhen ||
+      !location ||
+      !pcOwner?.trim() ||
+      !requesterName?.trim()
+    ) {
       return res.status(400).json({ message: "Field wajib belum lengkap" });
     }
 
@@ -33,9 +42,9 @@ export const createTicket = async (req, res, next) => {
       description: description.trim(),
       category,
       sinceWhen,
-      requesterName: user?.name || "",
-      location,
-      pcOwner,
+      requesterName: requesterName.trim(),          // ← ambil dari form
+      location: location.trim(),
+      pcOwner: pcOwner.trim(),
       computerName: computerName || "",
       anydeskNumber: anydeskNumber || "",
       anydeskPassword: anydeskPassword || "",
@@ -70,7 +79,7 @@ export const createTicket = async (req, res, next) => {
           recipient: admin._id,
           type: "new_ticket",
           title: "Tiket Baru Masuk",
-          message: `${pcOwner} membuat tiket: ${ticket.title}`,
+          message: `${requesterName} membuat tiket: ${ticket.title}`,
           link: `/tickets/${ticket._id}`,
           meta: { ticketId: ticket._id },
         }));
@@ -80,8 +89,6 @@ export const createTicket = async (req, res, next) => {
     } catch (notifErr) {
       console.error("Gagal membuat notifikasi:", notifErr.message);
     }
-
-    // (Opsional) Kirim Telegram / WhatsApp di sini juga
 
     res.status(201).json({ ticket: populated });
   } catch (err) {
