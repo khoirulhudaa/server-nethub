@@ -49,6 +49,24 @@ export const createTicket = async (req, res, next) => {
       ],
     });
 
+    const admins = await User.find({
+        role: { $in: ["admin", "superAdmin"] },
+    }).select("_id");
+
+    // Buat notifikasi untuk setiap admin
+    const notifications = admins.map((admin) => ({
+        recipient: admin._id,
+        type: "new_ticket",
+        title: "Tiket Baru Masuk",
+        message: `${populated.createdBy?.name || "User"} membuat tiket: ${populated.title}`,
+        link: `/tickets/${populated._id}`,
+        meta: { ticketId: populated._id },
+    }));
+
+    if (notifications.length > 0) {
+        await Notification.insertMany(notifications);
+    }
+
     const populated = await ticket.populate("createdBy", "name avatar title");
     res.status(201).json({ ticket: populated });
   } catch (err) {
