@@ -11,6 +11,7 @@ import quizRoutes from "./routes/quizRouter.js";
 import announcementRoutes from "./routes/announcementRoutes.js";
 import collectionRoutes from "./routes/hardwareRoutes.js";
 import activitiesRoutes from "./routes/activityRoutes.js";
+import ticketRoutes from "./routes/ticketRoutes.js";
 
 dotenv.config();
 connectDB();
@@ -41,9 +42,10 @@ app.use("/api/auth", authRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/hardware", collectionRoutes);
 app.use("/api/activities", activitiesRoutes);
-app.use("/api", commentRoutes); // exposes /api/posts/:postId/comments and /api/comments/:id
-app.use("/api/quizzes", quizRoutes);                     // ← tambahkan
+app.use("/api", commentRoutes); 
+app.use("/api/quizzes", quizRoutes);                    
 app.use("/api/announcements", announcementRoutes);
+app.use("/api/tickets", ticketRoutes);
 app.get("/", (req, res) => {
   res.json({ message: "Networking Hub API", status: "ok" });
 });
