@@ -6,6 +6,7 @@ import {
   updateTicketStatus,
   addTicketComment,
   getTicketOptions,
+  getPublicTicket,
 } from "../controllers/ticketController.js";
 import { protect, optionalAuth } from "../middleware/auth.js"; // pastikan ada optionalAuth
 
@@ -17,5 +18,6 @@ router.get("/", protect, getTickets);              // hanya login
 router.get("/:id", protect, getTicketById);        // hanya login
 router.patch("/:id/status", protect, updateTicketStatus);
 router.post("/:id/comments", protect, addTicketComment);
+router.get("/public/:id", getPublicTicket);
 
 export default router;

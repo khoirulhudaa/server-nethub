@@ -325,3 +325,34 @@ export const getTicketOptions = async (req, res) => {
     priorities: TICKET_PRIORITY_LIST,
   });
 };
+
+// ====================== PUBLIC TRACK TICKET ======================
+export const getPublicTicket = async (req, res, next) => {
+  try {
+    const ticket = await Ticket.findById(req.params.id)
+      .select(
+        "title description category status priority sinceWhen location pcOwner computerName requesterName statusHistory comments createdAt updatedAt"
+      )
+      .populate("comments.user", "name avatar title")
+      .populate("statusHistory.changedBy", "name");
+
+    if (!ticket) {
+      return res.status(404).json({ message: "Tiket tidak ditemukan" });
+    }
+
+    // Sembunyikan komentar internal dari guest
+    const publicComments = (ticket.comments || []).filter((c) => !c.isInternal);
+
+    res.json({
+      ticket: {
+        ...ticket.toObject(),
+        comments: publicComments,
+        // Jangan kirim anydesk ke public
+        anydeskNumber: undefined,
+        anydeskPassword: undefined,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
