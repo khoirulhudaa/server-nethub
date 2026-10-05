@@ -5,6 +5,8 @@ import {
   TICKET_STATUS_LIST,
   TICKET_PRIORITY_LIST,
 } from "../models/Ticket.js";
+import User from "../models/User.js";
+import Notification from "../models/Notification.js";
 
 // ====================== CREATE ======================
 export const createTicket = async (req, res, next) => {
@@ -141,6 +143,7 @@ export const getTickets = async (req, res, next) => {
 };
 
 // ====================== GET DETAIL + REKOMENDASI GUIDES ======================
+// ====================== GET DETAIL + REKOMENDASI GUIDES ======================
 export const getTicketById = async (req, res, next) => {
   try {
     const ticket = await Ticket.findById(req.params.id)
@@ -150,52 +153,74 @@ export const getTicketById = async (req, res, next) => {
       .populate("comments.user", "name avatar title")
       .populate("statusHistory.changedBy", "name");
 
-    if (!ticket) return res.status(404).json({ message: "Tiket tidak ditemukan" });
+    if (!ticket) {
+      return res.status(404).json({ message: "Tiket tidak ditemukan" });
+    }
 
-    // Authorization
-    const isAdmin = req.user.role === "superAdmin" || req.user.role === "admin";
-    const isOwner = String(ticket.createdBy._id) === String(req.user._id);
+    // ===== Authorization =====
+    const isAdmin = req.user?.role === "superAdmin" || req.user?.role === "admin";
+    
+    // Kalau tiket dibuat guest (createdBy null), hanya admin yang boleh lihat
+    // Kalau ada createdBy, pemilik atau admin yang boleh
+    const isOwner = ticket.createdBy && String(ticket.createdBy._id) === String(req.user?._id);
+
     if (!isAdmin && !isOwner) {
       return res.status(403).json({ message: "Akses ditolak" });
     }
 
-    // ===== Rekomendasi Guides (Level 1) =====
-    const searchText = `${ticket.title} ${ticket.description}`.toLowerCase();
-    const keywords = searchText
-      .split(/\s+/)
-      .filter((w) => w.length > 3)
-      .slice(0, 8);
+    // ===== Rekomendasi Guides (versi aman) =====
+    let recommendedGuides = [];
+    let bestGuide = null;
 
-    // Mapping kategori tiket → kategori post (sesuaikan jika perlu)
-    const categoryMap = {
-      Network: "Topology",
-      "PC/Laptop": "Hardware",
-      Printer: "Hardware",
-      Server: "Installation",
-      Email: "Maintenance",
-      Aplikasi: "Code",
-      Lainnya: null,
-    };
+    try {
+      const categoryMap = {
+        Network: "Topology",
+        "PC/Laptop": "Hardware",
+        Printer: "Hardware",
+        Server: "Installation",
+        Email: "Maintenance",
+        Aplikasi: "Code",
+        Lainnya: null,
+      };
 
-    const postFilter = {
-      $or: [
-        { $text: { $search: ticket.title } },
-        { tags: { $in: keywords } },
-      ],
-    };
+      const mappedCategory = categoryMap[ticket.category];
 
-    if (categoryMap[ticket.category]) {
-      postFilter.category = categoryMap[ticket.category];
+      // Query sederhana & aman (tanpa $text dulu supaya tidak error)
+      const postFilter = {};
+
+      if (mappedCategory) {
+        postFilter.category = mappedCategory;
+      }
+
+      // Ambil guides berdasarkan kategori dulu
+      recommendedGuides = await Post.find(postFilter)
+        .select("title slug excerpt category tags coverImage views")
+        .sort({ views: -1, createdAt: -1 })
+        .limit(5)
+        .lean();
+
+      // Kalau ingin lebih pintar, bisa filter manual pakai keyword
+      if (recommendedGuides.length > 0) {
+        const keywords = `${ticket.title} ${ticket.description}`
+          .toLowerCase()
+          .split(/\s+/)
+          .filter((w) => w.length > 3);
+
+        // Urutkan manual yang paling banyak mengandung keyword
+        recommendedGuides = recommendedGuides
+          .map((guide) => {
+            const text = `${guide.title} ${guide.excerpt} ${(guide.tags || []).join(" ")}`.toLowerCase();
+            const score = keywords.reduce((acc, kw) => (text.includes(kw) ? acc + 1 : acc), 0);
+            return { ...guide, score };
+          })
+          .sort((a, b) => b.score - a.score || b.views - a.views);
+
+        bestGuide = recommendedGuides[0] || null;
+      }
+    } catch (guideErr) {
+      console.error("Gagal mengambil rekomendasi guides:", guideErr.message);
+      // Jangan gagalkan seluruh request hanya karena rekomendasi error
     }
-
-    const recommendedGuides = await Post.find(postFilter)
-      .select("title slug excerpt category tags coverImage views")
-      .sort({ score: { $meta: "textScore" }, views: -1 })
-      .limit(5)
-      .lean();
-
-    // Ambil 1 paling cocok
-    const bestGuide = recommendedGuides.length > 0 ? recommendedGuides[0] : null;
 
     res.json({
       ticket,
