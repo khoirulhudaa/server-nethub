@@ -8,7 +8,7 @@ import {
   deleteContact,
   toggleFavorite,
   markContacted,
-} from "../controllers/contactController.js";
+} from "../controllers/ContactController.js";
 import { protect } from "../middleware/auth.js";
 
 const router = Router();
