@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { TASK_PRIORITIES, TASK_STATUSES, task as Task } from "../models/task";
+import Task, { TASK_PRIORITIES, TASK_STATUSES } from "../models/Task.js";
 
 const escapeRegex = (s = "") => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const bad = (res, status, message) => res.status(status).json({ message });
@@ -10,7 +10,7 @@ const dayRange = (tzOffset = 0) => {
   const local = Date.now() - off * 60000;
   const startLocal = Math.floor(local / 86400000) * 86400000;
   const start = new Date(startLocal + off * 60000);
-  return { start, end: new Daxte(start.getTime() + 86400000) };
+  return { start, end: new Date(start.getTime() + 86400000) };
 };
 
 const nextDue = (date, repeat, minDate) => {

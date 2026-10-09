@@ -4,7 +4,7 @@ import {
   toggleTask, toggleChecklistItem, deleteTask, clearCompleted,
 } from "../controllers/taskController.js";
 import { protect } from "../middleware/auth.js";
-import { noGuest } from "../middleware/noGuest.js";
+import { noGuest } from "../utils/noGuest.js";
 
 const router = Router();
 router.use(protect, noGuest);

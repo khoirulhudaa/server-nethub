@@ -3,7 +3,7 @@ import {
   getNotes, getNoteStats, getNoteById, createNote, updateNote, togglePin, deleteNote,
 } from "../controllers/noteController.js";
 import { protect } from "../middleware/auth.js";
-import { noGuest } from "../middleware/noGuest.js";
+import { noGuest } from "../utils/noGuest.js";
 
 const router = Router();
 router.use(protect, noGuest);
