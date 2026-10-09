@@ -13,6 +13,7 @@ import collectionRoutes from "./routes/hardwareRoutes.js";
 import activitiesRoutes from "./routes/activityRoutes.js";
 import ticketRoutes from "./routes/ticketRoutes.js";
 import notificationRoutes from "./routes/notificationRouter.js";
+import contactRoutes from "./routes/contactRoutes.js";
 
 dotenv.config();
 connectDB();
@@ -48,6 +49,7 @@ app.use("/api/quizzes", quizRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/announcements", announcementRoutes);
 app.use("/api/tickets", ticketRoutes);
+app.use("/api/contacts", contactRoutes);
 app.get("/", (req, res) => {
   res.json({ message: "Networking Hub API", status: "ok" });
 });
