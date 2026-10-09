@@ -14,6 +14,8 @@ import activitiesRoutes from "./routes/activityRoutes.js";
 import ticketRoutes from "./routes/ticketRoutes.js";
 import notificationRoutes from "./routes/notificationRouter.js";
 import contactRoutes from "./routes/contactRoutes.js";
+import taskRoutes from "./routes/taskRoutes.js";
+import noteRoutes from "./routes/noteRoutes.js";
 
 dotenv.config();
 connectDB();
@@ -50,6 +52,8 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/announcements", announcementRoutes);
 app.use("/api/tickets", ticketRoutes);
 app.use("/api/contacts", contactRoutes);
+app.use("/api/tasks", taskRoutes);
+app.use("/api/notes", noteRoutes);
 app.get("/", (req, res) => {
   res.json({ message: "Networking Hub API", status: "ok" });
 });
