@@ -299,7 +299,7 @@ export const deletePost = async (req, res, next) => {
   }
 };
 
-const MAX_PINS = 6;
+const MAX_PINS = 3;
 
 export const togglePin = async (req, res, next) => {
   try {
