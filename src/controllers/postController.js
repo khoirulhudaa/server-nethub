@@ -168,7 +168,7 @@ export const getPosts = async (req, res, next) => {
 
     const key = String(uid);
     const pinTime = (p) => p.pinTimes?.get(key)?.getTime?.() ?? 0;
-    const pinned = pinnedRaw.sort((a, b) => pinTime(b) - pinTime(a)).slice(0, 4);
+    const pinned = pinnedRaw.sort((a, b) => pinTime(b) - pinTime(a)).slice(0, 6);
 
     res.json({
       pinned: pinned.map((p) => withPinned(p, uid)),
@@ -299,7 +299,7 @@ export const deletePost = async (req, res, next) => {
   }
 };
 
-const MAX_PINS = 4;
+const MAX_PINS = 6;
 
 export const togglePin = async (req, res, next) => {
   try {
