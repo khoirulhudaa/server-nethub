@@ -136,6 +136,7 @@ const postSchema = new mongoose.Schema(
 
     author: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     views: { type: Number, default: 0 },
+    occurrence: { type: Number, default: 0 },
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     savedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
 
