@@ -38,6 +38,7 @@ export const createPost = async (req, res, next) => {
       gallery, 
       topology,
       steps,
+      pdfFile,
       customTables,
       flowchart,
       referencesImages,
@@ -72,6 +73,7 @@ export const createPost = async (req, res, next) => {
       topology: topology || { nodes: [], edges: [] },
       referencesImages: refs,
       flowchart: flowchart || { nodes: [], edges: [] },
+      pdfFile: pdfFile?.url ? pdfFile : { url: "", name: "", size: 0 },
       steps: Array.isArray(steps) ? steps : [],
       customTables: Array.isArray(customTables) ? customTables : [],
       codeBlocks: Array.isArray(codeBlocks) ? codeBlocks : [],   // ← tambahkan ini
@@ -238,6 +240,7 @@ export const updatePost = async (req, res, next) => {
       "category", 
       "tags", 
       "hardwareMeshes", 
+      "pdfFile",
       "gallery", 
       "topology",
       "referencesImages",

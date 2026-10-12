@@ -84,7 +84,20 @@ const postSchema = new mongoose.Schema(
     title: { type: String, required: true, trim: true, maxlength: 140 },
     slug: { type: String, unique: true, index: true },
     excerpt: { type: String, maxlength: 240, default: "" },
-    content: { type: String, required: true },
+    content: {
+      type: String,
+      default: "",
+      required: function () {
+        return !this.pdfFile?.url; // wajib hanya jika tidak ada PDF
+      },
+    },
+
+    // tambahkan di bawah codeBlocks
+    pdfFile: {
+      url: { type: String, default: "" }, // base64 data URL
+      name: { type: String, default: "" },
+      size: { type: Number, default: 0 },
+    },
     coverImage: { type: String, default: "" },
     category: { type: String, enum: CATEGORIES, required: true },
 
