@@ -9,7 +9,6 @@ const CATEGORIES = [
   "Eproc",
   "E-kantin",
   "EHRD",
-  "Security",
 ];
 
 // ===== Step-by-step =====
