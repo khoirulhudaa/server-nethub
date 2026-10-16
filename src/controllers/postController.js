@@ -95,23 +95,38 @@ export const createPost = async (req, res, next) => {
   }
 };
 
+// Parse ?tags=a,b  (juga mendukung ?tags=a&tags=b dan ?tag=a yang lama)
+const parseTags = (raw) => {
+  const list = Array.isArray(raw) ? raw : String(raw || "").split(",");
+  return [...new Set(list.map((t) => String(t).toLowerCase().trim()).filter(Boolean))];
+};
+
 export const getPosts = async (req, res, next) => {
   try {
-    const { category, search, author, tag, page = 1, limit = 12 } = req.query;
+    const { category, search, author, page = 1, limit = 12 } = req.query;
+    const tags = parseTags(req.query.tags ?? req.query.tag);
     const filter = {};
 
     if (category && POST_CATEGORIES.includes(category)) filter.category = category;
     if (author) filter.author = author;
-    if (tag) filter.tags = tag.toLowerCase().trim();
+    if (tags.length) {
+      // match=all → harus punya SEMUA tag, default → punya SALAH SATU tag
+      filter.tags = req.query.match === "all" ? { $all: tags } : { $in: tags };
+    }
     if (search) filter.$text = { $search: search };
 
     const skip = (Number(page) - 1) * Number(limit);
     const uid = getUid(req);
+
+    // Semua tag yang ada, untuk mengisi dropdown filter di frontend
+    const allTags = (await Post.distinct("tags")).filter(Boolean).sort();
+
     const meta = (total) => ({
       total,
       page: Number(page),
       pages: Math.ceil(total / Number(limit)),
       categories: POST_CATEGORIES,
+      tags: allTags,
     });
 
     // Halaman profil author
@@ -149,17 +164,18 @@ export const getPosts = async (req, res, next) => {
     }
 
     // User login
-    const hasCategoryOrSearch = Boolean(category || search);
+    const isFiltering = Boolean(category || search || tags.length);
 
-    // Overview: sembunyikan post yang sudah saya pin (sudah tampil di PinnedHero)
-    const postsFilter = hasCategoryOrSearch
+    // Overview: sembunyikan post yang sudah saya pin (sudah tampil di PinnedHero).
+    // Saat filter/search aktif, post pinned tetap ikut tampil di grid.
+    const postsFilter = isFiltering
       ? { ...filter }
       : { ...filter, pinnedBy: { $ne: uid } };
 
     const pinnedFilter = { ...filter, pinnedBy: uid };
 
     const [pinnedRaw, posts, total] = await Promise.all([
-      Post.find(pinnedFilter).populate("author", "name avatar title"),   // hapus .sort/.limit
+      Post.find(pinnedFilter).populate("author", "name avatar title"),
       Post.find(postsFilter)
         .populate("author", "name avatar title")
         .sort({ createdAt: -1 })
