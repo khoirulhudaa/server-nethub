@@ -6,7 +6,7 @@ import { logActivity } from "../utils/logActivity.js";
 // ---------- Enkripsi password perangkat ----------
 // Wajib set CAMERA_SECRET di .env (string acak panjang, jangan diganti setelah ada data)
 const getKey = () => {
-  const secret = process.env.CAMERA_SECRET;
+  const secret = "cameraPINTEX123";
   if (!secret) throw new Error("CAMERA_SECRET belum di-set di environment");
   return crypto.createHash("sha256").update(secret).digest();
 };
