@@ -1,168 +1,168 @@
-import mongoose from "mongoose";
-import slugify from "slugify";
+  import mongoose from "mongoose";
+  import slugify from "slugify";
 
-const CATEGORIES = [
-  "Topology",
-  "Maintenance",
-  "Installation",
-  "Hardware",
-  "Eproc",
-  "E-kantin",
-  "EHRD",
-];
+  const CATEGORIES = [
+    "Topology",
+    "Maintenance",
+    "Installation",
+    "Hardware",
+    "Eproc",
+    "E-kantin",
+    "EHRD",
+  ];
 
-// ===== Step-by-step =====
-const stepSchema = new mongoose.Schema(
-  {
-    title: { type: String, default: "" },
-    description: { type: String, default: "" },
-    image: { type: String, default: "" }, // base64 atau URL
-  },
-  { _id: false }
-);
-
-// ===== Custom Table =====
-const customTableSchema = new mongoose.Schema(
-  {
-    title: { type: String, default: "" },
-    rows: { type: Number, default: 3 },
-    cols: { type: Number, default: 3 },
-    data: {
-      type: [[String]], // 2D array
-      default: [],
+  // ===== Step-by-step =====
+  const stepSchema = new mongoose.Schema(
+    {
+      title: { type: String, default: "" },
+      description: { type: String, default: "" },
+      image: { type: String, default: "" }, // base64 atau URL
     },
-  },
-  { _id: false }
-);
+    { _id: false }
+  );
 
-const hardwareMeshSchema = new mongoose.Schema(
-  {
-    label: { type: String, default: "Device" },
-    imageUrl: { type: String, required: true },
-    position: {
-      x: { type: Number, default: 0 },
-      y: { type: Number, default: 0 },
-      z: { type: Number, default: 0 },
-    },
-    rotationY: { type: Number, default: 0 },
-  },
-  { _id: false }
-);
-
-const galleryItemSchema = new mongoose.Schema(
-  {
-    url: { type: String, required: true },
-    alt: { type: String, default: "" },
-    photographer: { type: String, default: "" },
-    photographerUrl: { type: String, default: "" },
-    source: { type: String, default: "unsplash" },
-  },
-  { _id: false }
-);
-
-// ===== Reference Images (upload lokal) =====
-const referenceImageSchema = new mongoose.Schema(
-  {
-    url: { type: String, required: true }, // base64 atau URL
-    name: { type: String, default: "" },
-  },
-  { _id: false }
-);
-
-const codeBlockSchema = new mongoose.Schema(
-  {
-    title: { type: String, default: "" },        // contoh: "Konfigurasi VLAN"
-    language: { type: String, default: "bash" }, // bash, routeros, javascript, dll
-    code: { type: String, default: "" },
-  },
-  { _id: false }
-);
-
-const postSchema = new mongoose.Schema(
-  {
-    title: { type: String, required: true, trim: true, maxlength: 140 },
-    slug: { type: String, unique: true, index: true },
-    excerpt: { type: String, maxlength: 240, default: "" },
-    content: {
-      type: String,
-      default: "",
-      required: function () {
-        return !this.pdfFile?.url; // wajib hanya jika tidak ada PDF
+  // ===== Custom Table =====
+  const customTableSchema = new mongoose.Schema(
+    {
+      title: { type: String, default: "" },
+      rows: { type: Number, default: 3 },
+      cols: { type: Number, default: 3 },
+      data: {
+        type: [[String]], // 2D array
+        default: [],
       },
     },
+    { _id: false }
+  );
 
-    // tambahkan di bawah codeBlocks
-    pdfFile: {
-      url: { type: String, default: "" }, // base64 data URL
+  const hardwareMeshSchema = new mongoose.Schema(
+    {
+      label: { type: String, default: "Device" },
+      imageUrl: { type: String, required: true },
+      position: {
+        x: { type: Number, default: 0 },
+        y: { type: Number, default: 0 },
+        z: { type: Number, default: 0 },
+      },
+      rotationY: { type: Number, default: 0 },
+    },
+    { _id: false }
+  );
+
+  const galleryItemSchema = new mongoose.Schema(
+    {
+      url: { type: String, required: true },
+      alt: { type: String, default: "" },
+      photographer: { type: String, default: "" },
+      photographerUrl: { type: String, default: "" },
+      source: { type: String, default: "unsplash" },
+    },
+    { _id: false }
+  );
+
+  // ===== Reference Images (upload lokal) =====
+  const referenceImageSchema = new mongoose.Schema(
+    {
+      url: { type: String, required: true }, // base64 atau URL
       name: { type: String, default: "" },
-      size: { type: Number, default: 0 },
     },
-    coverImage: { type: String, default: "" },
-    category: { type: String, enum: CATEGORIES, required: true },
+    { _id: false }
+  );
 
-    tags: {
-      type: [{ type: String, trim: true, lowercase: true }],
-      validate: {
-        validator: (v) => v.length <= 4,
-        message: "Maksimal 4 tags",
+  const codeBlockSchema = new mongoose.Schema(
+    {
+      title: { type: String, default: "" },        // contoh: "Konfigurasi VLAN"
+      language: { type: String, default: "bash" }, // bash, routeros, javascript, dll
+      code: { type: String, default: "" },
+    },
+    { _id: false }
+  );
+
+  const postSchema = new mongoose.Schema(
+    {
+      title: { type: String, required: true, trim: true, maxlength: 140 },
+      slug: { type: String, unique: true, index: true },
+      excerpt: { type: String, maxlength: 240, default: "" },
+      content: {
+        type: String,
+        default: "",
+        required: function () {
+          return !this.pdfFile?.url; // wajib hanya jika tidak ada PDF
+        },
       },
-    },
 
-    topology: {
-      nodes: { type: Array, default: [] },
-      edges: { type: Array, default: [] },
-    },
-    flowchart: {
-      nodes: { type: Array, default: [] },
-      edges: { type: Array, default: [] },
-    },
-
-    hardwareMeshes: [hardwareMeshSchema],
-    gallery: [galleryItemSchema],
-
-    referencesImages: {
-      type: [referenceImageSchema],
-      validate: {
-        validator: (v) => v.length <= 4,
-        message: "Maksimal 4 reference images",
+      // tambahkan di bawah codeBlocks
+      pdfFile: {
+        url: { type: String, default: "" }, // base64 data URL
+        name: { type: String, default: "" },
+        size: { type: Number, default: 0 },
       },
-      default: [],
+      coverImage: { type: String, default: "" },
+      category: { type: String, enum: CATEGORIES, required: true },
+
+      tags: {
+        type: [{ type: String, trim: true, lowercase: true }],
+        validate: {
+          validator: (v) => v.length <= 4,
+          message: "Maksimal 4 tags",
+        },
+      },
+
+      topology: {
+        nodes: { type: Array, default: [] },
+        edges: { type: Array, default: [] },
+      },
+      flowchart: {
+        nodes: { type: Array, default: [] },
+        edges: { type: Array, default: [] },
+      },
+
+      hardwareMeshes: [hardwareMeshSchema],
+      gallery: [galleryItemSchema],
+
+      referencesImages: {
+        type: [referenceImageSchema],
+        validate: {
+          validator: (v) => v.length <= 4,
+          message: "Maksimal 4 reference images",
+        },
+        default: [],
+      },
+
+      steps: { type: [stepSchema], default: [] },
+      customTables: { type: [customTableSchema], default: [] },
+      codeBlocks: { type: [codeBlockSchema], default: [] },
+
+      author: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+      views: { type: Number, default: 0 },
+      occurrence: { type: Number, default: 0 },
+      likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+      savedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+
+      // Pin personal: daftar user yang mem-pin post ini
+      pinnedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+      pinTimes: { type: Map, of: Date, default: {} },
     },
+    { timestamps: true }
+  );
 
-    steps: { type: [stepSchema], default: [] },
-    customTables: { type: [customTableSchema], default: [] },
-    codeBlocks: { type: [codeBlockSchema], default: [] },
+  // Pencarian teks ($text)
+  postSchema.index({ title: "text", excerpt: "text", tags: "text" });
 
-    author: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    views: { type: Number, default: 0 },
-    occurrence: { type: Number, default: 0 },
-    likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-    savedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  // Index untuk query getPosts / pagination
+  postSchema.index({ createdAt: -1 });
+  postSchema.index({ category: 1, createdAt: -1 });
+  postSchema.index({ author: 1, createdAt: -1 });
+  postSchema.index({ pinnedBy: 1, createdAt: -1 });
 
-    // Pin personal: daftar user yang mem-pin post ini
-    pinnedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-    pinTimes: { type: Map, of: Date, default: {} },
-  },
-  { timestamps: true }
-);
+  postSchema.pre("validate", function (next) {
+    if (this.title && (!this.slug || this.isModified("title"))) {
+      this.slug = `${slugify(this.title, { lower: true, strict: true })}-${Date.now()
+        .toString(36)
+        .slice(-5)}`;
+    }
+    next();
+  });
 
-// Pencarian teks ($text)
-postSchema.index({ title: "text", excerpt: "text", tags: "text" });
-
-// Index untuk query getPosts / pagination
-postSchema.index({ createdAt: -1 });
-postSchema.index({ category: 1, createdAt: -1 });
-postSchema.index({ author: 1, createdAt: -1 });
-postSchema.index({ pinnedBy: 1, createdAt: -1 });
-
-postSchema.pre("validate", function (next) {
-  if (this.title && (!this.slug || this.isModified("title"))) {
-    this.slug = `${slugify(this.title, { lower: true, strict: true })}-${Date.now()
-      .toString(36)
-      .slice(-5)}`;
-  }
-  next();
-});
-
-export const POST_CATEGORIES = CATEGORIES;
-export default mongoose.model("Post", postSchema);
+  export const POST_CATEGORIES = CATEGORIES;
+  export default mongoose.model("Post", postSchema);

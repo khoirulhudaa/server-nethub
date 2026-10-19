@@ -17,6 +17,7 @@ import contactRoutes from "./routes/contactRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
 import noteRoutes from "./routes/noteRoutes.js";
 import pcsRoutes from "./routes/pcRoutes.js";
+import cameraRoutes from "./routes/cameraRoutes.js";
 
 dotenv.config();
 connectDB();
@@ -49,6 +50,7 @@ app.use("/api/hardware", collectionRoutes);
 app.use("/api/activities", activitiesRoutes);
 app.use("/api", commentRoutes); 
 app.use("/api/quizzes", quizRoutes);                    
+app.use("/api/cameras", cameraRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/announcements", announcementRoutes);
 app.use("/api/tickets", ticketRoutes);

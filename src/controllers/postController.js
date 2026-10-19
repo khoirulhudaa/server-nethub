@@ -103,7 +103,10 @@ const parseTags = (raw) => {
 
 export const getPosts = async (req, res, next) => {
   try {
-    const { category, search, author, page = 1, limit = 12 } = req.query;
+    // const { category, search, author, page = 1, limit = 12 } = req.query;
+    const { category, search, author } = req.query;
+    const pageNum = Math.max(1, Number(req.query.page) || 1);
+    const limitNum = Math.min(Math.max(1, Number(req.query.limit) || 12), 1000);
     const tags = parseTags(req.query.tags ?? req.query.tag);
     const filter = {};
 
@@ -115,7 +118,8 @@ export const getPosts = async (req, res, next) => {
     }
     if (search) filter.$text = { $search: search };
 
-    const skip = (Number(page) - 1) * Number(limit);
+    // const skip = (Number(page) - 1) * Number(limit);
+    const skip = (pageNum - 1) * limitNum;
     const uid = getUid(req);
 
     // Semua tag yang ada, untuk mengisi dropdown filter di frontend
@@ -123,8 +127,8 @@ export const getPosts = async (req, res, next) => {
 
     const meta = (total) => ({
       total,
-      page: Number(page),
-      pages: Math.ceil(total / Number(limit)),
+      page: pageNum,
+      pages: Math.ceil(total / limitNum),
       categories: POST_CATEGORIES,
       tags: allTags,
     });
