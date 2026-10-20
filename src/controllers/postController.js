@@ -180,11 +180,11 @@ export const getPosts = async (req, res, next) => {
 
     const [pinnedRaw, posts, total] = await Promise.all([
       Post.find(pinnedFilter).populate("author", "name avatar title"),
-      Post.find(postsFilter)
-        .populate("author", "name avatar title")
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(Number(limit)),
+      Post.find(filter)
+      .populate("author", "name avatar title")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNum),
       Post.countDocuments(postsFilter),
     ]);
 
