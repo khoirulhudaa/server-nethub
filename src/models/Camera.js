@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 export const DEVICE_TYPES = ["NVR", "DVR", "Camera"];
-export const ENTITIES = ["pintex", "tdi"];
+export const ENTITIES = ["pintex", "tfi", "umum"];
 
 const cameraSchema = new mongoose.Schema(
   {

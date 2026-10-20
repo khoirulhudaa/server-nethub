@@ -62,6 +62,44 @@ export const getCameras = async (req, res, next) => {
   }
 };
 
+export const createCamerasBulk = async (req, res, next) => {
+  try {
+    const { items } = req.body;
+    if (!Array.isArray(items) || items.length === 0)
+      return res.status(400).json({ message: "Data kosong" });
+    if (items.length > 200)
+      return res.status(400).json({ message: "Maksimal 200 perangkat sekali import" });
+
+    const errors = [];
+    const docs = [];
+    items.forEach((b, i) => {
+      const err = validate(b, { requirePassword: true });
+      if (err) errors.push({ row: i + 1, message: err });
+      else docs.push({ ...pick(b), password: encrypt(b.password), createdBy: req.user._id });
+    });
+    if (errors.length)
+      return res.status(400).json({ message: `${errors.length} baris tidak valid`, errors });
+
+    const created = await Camera.insertMany(docs);
+
+    await logActivity({
+      userId: req.user._id,
+      action: "bulk_create_camera",
+      targetType: "camera",
+      metadata: { count: created.length },
+      req,
+    });
+
+    const cameras = created.map((c) => {
+      const { password, ...safe } = c.toObject();
+      return safe;
+    });
+    res.status(201).json({ cameras });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // POST /api/cameras
 export const createCamera = async (req, res, next) => {
   try {

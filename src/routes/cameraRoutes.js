@@ -5,6 +5,7 @@ import {
   updateCamera,
   deleteCamera,
   revealPassword,
+  createCamerasBulk,
 } from "../controllers/cameraController.js";
 import { protect } from "../middleware/auth.js";
 
@@ -22,6 +23,7 @@ router.use(protect, blockGuest);
 
 router.get("/", getCameras);
 router.post("/", createCamera);
+router.post("/bulk", createCamerasBulk);
 router.put("/:id", updateCamera);
 router.delete("/:id", deleteCamera);
 router.get("/:id/password", revealPassword);
