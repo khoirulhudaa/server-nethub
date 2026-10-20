@@ -202,3 +202,37 @@ export const revealPassword = async (req, res, next) => {
     next(err);
   }
 };
+
+// DELETE /api/cameras/bulk  { ids: [...] }
+export const deleteCamerasBulk = async (req, res, next) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0)
+      return res.status(400).json({ message: "Pilih minimal satu perangkat" });
+    if (ids.length > 500)
+      return res.status(400).json({ message: "Maksimal 500 perangkat sekali hapus" });
+    if (!ids.every((id) => mongoose.isValidObjectId(id)))
+      return res.status(400).json({ message: "ID tidak valid" });
+
+    const cameras = await Camera.find({ _id: { $in: ids } }).select("name");
+    const result = await Camera.deleteMany({ _id: { $in: cameras.map((c) => c._id) } });
+
+    await logActivity({
+      userId: req.user._id,
+      action: "bulk_delete_camera",
+      targetType: "camera",
+      metadata: {
+        count: result.deletedCount,
+        names: cameras.slice(0, 50).map((c) => c.name),
+      },
+      req,
+    });
+
+    res.json({
+      deletedCount: result.deletedCount,
+      deletedIds: cameras.map((c) => String(c._id)),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
