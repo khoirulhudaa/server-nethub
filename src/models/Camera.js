@@ -13,6 +13,7 @@ const cameraSchema = new mongoose.Schema(
     entity: { type: String, enum: ENTITIES, required: true },
     group: { type: String, trim: true, maxlength: 100, default: "" }, // "" = tanpa group
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    groupColor: { type: String, default: "" }, // hex "#7c3aed", "" = warna defaulet
   },
   { timestamps: true }
 );

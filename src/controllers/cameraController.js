@@ -29,6 +29,15 @@ const decrypt = (payload) => {
 // ---------- Validasi ----------
 const HOST_RE = /^[a-zA-Z0-9.\-]+(:\d{1,5})?$/; // IPv4 / hostname (+ port opsional)
 const cleanGroup = (v) => String(v ?? "").trim().replace(/\s+/g, " ");
+const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+const cleanColor = (v) => (COLOR_RE.test(String(v ?? "")) ? String(v).toLowerCase() : "");
+
+// Ambil warna group yang sudah ada, supaya perangkat baru di group itu ikut warnanya
+const colorForGroup = async (group) => {
+  if (!group) return "";
+  const c = await Camera.findOne({ group, groupColor: { $ne: "" } }).select("groupColor");
+  return c?.groupColor || "";
+};
 
 const validate = (b, { requirePassword }) => {
   if (!DEVICE_TYPES.includes(b.deviceType)) return `Jenis hardware harus: ${DEVICE_TYPES.join(", ")}`;
@@ -75,11 +84,25 @@ export const createCamerasBulk = async (req, res, next) => {
 
     const errors = [];
     const docs = [];
+
+    const colorCache = new Map();
+    for (const b of items) {
+      const g = cleanGroup(b.group);
+      if (g && !colorCache.has(g)) colorCache.set(g, await colorForGroup(g));
+    }
+
     items.forEach((b, i) => {
       const err = validate(b, { requirePassword: true });
       if (err) errors.push({ row: i + 1, message: err });
-      else docs.push({ ...pick(b), password: encrypt(b.password), createdBy: req.user._id });
+      else
+        docs.push({
+          ...pick(b),
+          groupColor: colorCache.get(cleanGroup(b.group)) || "",
+          password: encrypt(b.password),
+          createdBy: req.user._id,
+        });
     });
+
     if (errors.length)
       return res.status(400).json({ message: `${errors.length} baris tidak valid`, errors });
 
@@ -113,6 +136,7 @@ export const createCamera = async (req, res, next) => {
       ...pick(req.body),
       password: encrypt(req.body.password),
       createdBy: req.user._id,
+      groupColor: await colorForGroup(cleanGroup(req.body.group)),
     });
 
     await logActivity({
@@ -141,6 +165,9 @@ export const updateCamera = async (req, res, next) => {
     if (error) return res.status(400).json({ message: error });
 
     const update = pick(req.body);
+    if (req.body.group !== undefined) {
+      update.groupColor = await colorForGroup(cleanGroup(req.body.group));
+    }
     if (req.body.password) update.password = encrypt(req.body.password);
 
     const camera = await Camera.findByIdAndUpdate(req.params.id, update, {
@@ -240,7 +267,7 @@ export const deleteCamerasBulk = async (req, res, next) => {
   }
 };
 
-// PATCH /api/cameras/group  { ids: [...], group: "Nama" }   (group "" = keluarkan dari group)
+// PATCH /api/cameras/group  { ids, group, color? }  (group "" = keluarkan dari group)
 export const setGroupBulk = async (req, res, next) => {
   try {
     const { ids } = req.body;
@@ -255,17 +282,32 @@ export const setGroupBulk = async (req, res, next) => {
     if (group.length > 100)
       return res.status(400).json({ message: "Nama group maksimal 100 karakter" });
 
-    const result = await Camera.updateMany({ _id: { $in: ids } }, { $set: { group } });
+    // warna: yang dikirim > warna group yang sudah ada > kosong
+    const color = !group
+      ? ""
+      : req.body.color !== undefined
+      ? cleanColor(req.body.color)
+      : await colorForGroup(group);
+
+    const result = await Camera.updateMany(
+      { _id: { $in: ids } },
+      { $set: { group, groupColor: color } }
+    );
+
+    // samakan warna semua anggota group bernama sama (mis. saat dua group digabung)
+    if (group && req.body.color !== undefined) {
+      await Camera.updateMany({ group }, { $set: { groupColor: color } });
+    }
 
     await logActivity({
       userId: req.user._id,
       action: group ? "group_camera" : "ungroup_camera",
       targetType: "camera",
-      metadata: { count: result.modifiedCount, group },
+      metadata: { count: result.modifiedCount, group, color },
       req,
     });
 
-    res.json({ updatedIds: ids, group });
+    res.json({ updatedIds: ids, group, color });
   } catch (err) {
     next(err);
   }
