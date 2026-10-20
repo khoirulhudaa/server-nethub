@@ -28,6 +28,7 @@ const decrypt = (payload) => {
 
 // ---------- Validasi ----------
 const HOST_RE = /^[a-zA-Z0-9.\-]+(:\d{1,5})?$/; // IPv4 / hostname (+ port opsional)
+const cleanGroup = (v) => String(v ?? "").trim().replace(/\s+/g, " ");
 
 const validate = (b, { requirePassword }) => {
   if (!DEVICE_TYPES.includes(b.deviceType)) return `Jenis hardware harus: ${DEVICE_TYPES.join(", ")}`;
@@ -36,6 +37,7 @@ const validate = (b, { requirePassword }) => {
   if (!b.ipAddress?.trim() || !HOST_RE.test(b.ipAddress.trim())) return "IP address tidak valid";
   if (!b.username?.trim()) return "Username wajib diisi";
   if (requirePassword && !b.password) return "Password wajib diisi";
+  if (b.group && cleanGroup(b.group).length > 100) return "Nama group maksimal 100 karakter";  
   return null;
 };
 
@@ -45,6 +47,7 @@ const pick = (b) => ({
   ipAddress: b.ipAddress?.trim(),
   username: b.username?.trim(),
   entity: b.entity,
+  ...(b.group !== undefined ? { group: cleanGroup(b.group) } : {}),
 });
 
 // GET /api/cameras  (password tidak pernah ikut)
@@ -55,7 +58,7 @@ export const getCameras = async (req, res, next) => {
     if (ENTITIES.includes(entity)) filter.entity = entity;
     if (DEVICE_TYPES.includes(deviceType)) filter.deviceType = deviceType;
 
-    const cameras = await Camera.find(filter).sort({ entity: 1, name: 1 });
+    const cameras = await Camera.find(filter).sort({ entity: 1, group: 1, name: 1 });
     res.json({ cameras });
   } catch (err) {
     next(err);
@@ -232,6 +235,37 @@ export const deleteCamerasBulk = async (req, res, next) => {
       deletedCount: result.deletedCount,
       deletedIds: cameras.map((c) => String(c._id)),
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// PATCH /api/cameras/group  { ids: [...], group: "Nama" }   (group "" = keluarkan dari group)
+export const setGroupBulk = async (req, res, next) => {
+  try {
+    const { ids } = req.body;
+    const group = cleanGroup(req.body.group);
+
+    if (!Array.isArray(ids) || ids.length === 0)
+      return res.status(400).json({ message: "Pilih minimal satu perangkat" });
+    if (ids.length > 500)
+      return res.status(400).json({ message: "Maksimal 500 perangkat sekali proses" });
+    if (!ids.every((id) => mongoose.isValidObjectId(id)))
+      return res.status(400).json({ message: "ID tidak valid" });
+    if (group.length > 100)
+      return res.status(400).json({ message: "Nama group maksimal 100 karakter" });
+
+    const result = await Camera.updateMany({ _id: { $in: ids } }, { $set: { group } });
+
+    await logActivity({
+      userId: req.user._id,
+      action: group ? "group_camera" : "ungroup_camera",
+      targetType: "camera",
+      metadata: { count: result.modifiedCount, group },
+      req,
+    });
+
+    res.json({ updatedIds: ids, group });
   } catch (err) {
     next(err);
   }
