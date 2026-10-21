@@ -54,7 +54,7 @@ app.use("/api/quizzes", quizRoutes);
 app.use("/api/cameras", cameraRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/announcements", announcementRoutes);
-app.use("/api/post/scrape", scrapeRoutes);
+app.use("/api/posts/scrape", scrapeRoutes);
 app.use("/api/scrape", scrapeRoutes);
 app.use("/api/tickets", ticketRoutes);
 app.use("/api/contacts", contactRoutes);
