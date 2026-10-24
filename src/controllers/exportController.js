@@ -13,7 +13,9 @@ const C = {
 };
 const M = 56; // margin
 const BOOK_TITLE = "NetHub IT Handbook";
-const LOGO_PATH = path.resolve("icons/icon-512x512.png");
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// controllers -> naik satu level ke src -> assets
+const LOGO_PATH = path.join(__dirname, "..", "assets", "icon-512x512.png");
 
 // ---------- helpers ----------
 // Font bawaan PDF (Helvetica) hanya mendukung Latin → bersihkan karakter lain
