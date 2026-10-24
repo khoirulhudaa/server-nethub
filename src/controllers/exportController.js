@@ -13,7 +13,7 @@ const C = {
 };
 const M = 56; // margin
 const BOOK_TITLE = "NetHub IT Handbook";
-const LOGO_PATH = path.resolve("assets/logo.png");
+const LOGO_PATH = path.resolve("assets/icon-512x512.png");
 
 // ---------- helpers ----------
 // Font bawaan PDF (Helvetica) hanya mendukung Latin → bersihkan karakter lain
@@ -360,15 +360,20 @@ export const exportAllGuidesPdf = async (req, res, next) => {
     const UW = W - 2 * M;
     const toc = []; // { label, page, level }
 
-    // ===== 1. COVER =====
+    // ===== 1. // ===== 1. COVER =====
+    // margin bawah dimatikan sementara supaya teks di dasar cover tidak memicu halaman baru
+    const coverBottom = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0;
+
     doc.save().rect(0, 0, W, H).fill(C.dark).restore();
 
+    const LOGO_SIZE = 180;
     if (fs.existsSync(LOGO_PATH)) {
-    try { doc.image(LOGO_PATH, M, M + 10, { fit: [90, 90] }); } catch {}
+    try { doc.image(LOGO_PATH, M, M + 10, { fit: [LOGO_SIZE, LOGO_SIZE] }); } catch {}
     }
 
     doc.font("Helvetica-Bold").fontSize(46).fillColor("#ffffff")
-    .text("IT Handbook", M, H * 0.3, { width: UW });
+    .text("IT Handbook", M, H * 0.38, { width: UW });
     doc.font("Helvetica").fontSize(15).fillColor("#93c5fd")
     .text("Kumpulan Panduan Jaringan & Infrastruktur IT", M, doc.y + 4, { width: UW });
 
@@ -386,6 +391,8 @@ export const exportAllGuidesPdf = async (req, res, next) => {
 
     doc.font("Helvetica").fontSize(9).fillColor("#64748b")
     .text(BOOK_TITLE, M, H - 60, { width: UW, lineBreak: false });
+
+    doc.page.margins.bottom = coverBottom; // kembalikan untuk halaman berikutnya;
 
     // ===== 2. KATA PENGANTAR =====
     doc.addPage();
