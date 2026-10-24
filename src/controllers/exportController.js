@@ -371,7 +371,7 @@ export const exportAllGuidesPdf = async (req, res, next) => {
     doc.save().rect(0, 0, W, H).fill(C.dark).restore();
 
     const LOGO_SIZE = 150;
-    const LOGO_X = M - 20;          // geser kiri untuk mengkompensasi padding transparan PNG
+    const LOGO_X = M - 17;          // geser kiri untuk mengkompensasi padding transparan PNG
     const LOGO_Y = M;
     const TITLE_Y = LOGO_Y + LOGO_SIZE + 28; // jarak tetap di bawah logo
 
