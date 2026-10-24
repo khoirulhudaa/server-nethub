@@ -22,6 +22,10 @@ const LOGO_PATH = path.join(__dirname, "..", "assets", "icon-512x512.png");
 // Font bawaan PDF (Helvetica) hanya mendukung Latin → bersihkan karakter lain
 const clean = (s = "") =>
   String(s)
+    .replace(/[\u2192\u21D2\u279C\u2794]/g, "->")
+    .replace(/[\u2190\u21D0]/g, "<-")
+    .replace(/[\u2194\u21D4]/g, "<->")
+    .replace(/[\u2713\u2714]/g, "v")
     .replace(/[\u2018\u2019]/g, "'")
     .replace(/[\u201C\u201D]/g, '"')
     .replace(/[\u2013\u2014]/g, "-")
@@ -44,8 +48,9 @@ const decodeEntities = (s) =>
 // HTML / teks biasa → array blok { type: h | p | li | code }
 const parseBlocks = (html = "") => {
   let src = String(html)
-    .replace(/<\s*(script|style)[^>]*>[\s\S]*?<\/\s*\1\s*>/gi, "")
-    .replace(/<img[^>]*>/gi, "");
+  .replace(/<\s*(script|style)[^>]*>[\s\S]*?<\/\s*\1\s*>/gi, "")
+  .replace(/<img[^>]*>/gi, "")
+  .replace(/<(?![a-zA-Z\/!])/g, "&lt;");   // "<" yang bukan tag → teks
   // konten tanpa tag HTML → baris baru dianggap <br>
   if (!/<[a-z][^>]*>/i.test(src)) src = src.replace(/\r?\n/g, "<br>");
 
