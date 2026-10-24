@@ -26,24 +26,159 @@ const clean = (s = "") =>
     .replace(/\u00A0/g, " ")
     .replace(/[^\x09\x0A\x20-\x7E\u00A1-\u00FF\u2022]/g, "");
 
-const htmlToText = (html = "") =>
-  clean(
-    String(html)
-      .replace(/<\s*(script|style)[^>]*>[\s\S]*?<\/\s*\1\s*>/gi, "")
-      .replace(/<img[^>]*>/gi, "")
-      .replace(/<li[^>]*>/gi, "\n\u2022 ")
-      .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/<\/(p|div|h[1-6]|ul|ol|pre|blockquote|tr)>/gi, "\n\n")
-      .replace(/<[^>]+>/g, "")
-      .replace(/&nbsp;/g, " ")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/&amp;/g, "&")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim()
-  );
+const BULLET = "-"; // penanda list; ganti ke "•" kalau mau titik
+const LIST_RE = /^\s*[-*\u2022\u2013]\s+/; // "-", "*", "•", "–" yang diketik manual
+
+const decodeEntities = (s) =>
+  s
+    .replace(/&nbsp;/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&");
+
+// HTML / teks biasa → array blok { type: h | p | li | code }
+const parseBlocks = (html = "") => {
+  let src = String(html)
+    .replace(/<\s*(script|style)[^>]*>[\s\S]*?<\/\s*\1\s*>/gi, "")
+    .replace(/<img[^>]*>/gi, "");
+  // konten tanpa tag HTML → baris baru dianggap <br>
+  if (!/<[a-z][^>]*>/i.test(src)) src = src.replace(/\r?\n/g, "<br>");
+
+  const blocks = [];
+  const lists = [];
+  let buf = "";
+  let inPre = false;
+  let inHeading = false;
+  let li = null;
+
+  const flush = () => {
+    const raw = buf;
+    buf = "";
+
+    if (inPre) {
+      const code = clean(decodeEntities(raw)).replace(/\n+$/, "");
+      if (code.trim()) blocks.push({ type: "code", text: code });
+      return;
+    }
+
+    const text = clean(decodeEntities(raw))
+      .replace(/[ \t]*\n[ \t]*/g, "\n")
+      .replace(/^\n+|\n+$/g, "")
+      .trim();
+    if (!text) return;
+
+    if (inHeading) {
+      blocks.push({ type: "h", text: text.replace(/\n/g, " ") });
+      return;
+    }
+
+    if (li) {
+      blocks.push({
+        type: "li",
+        depth: li.depth,
+        marker: li.marker, // null = lanjutan item sebelumnya
+        text: text.replace(LIST_RE, "").trim(), // buang "-" manual → tidak dobel
+      });
+      li.marker = null;
+      return;
+    }
+
+    // paragraf biasa; baris yang diawali "- " dijadikan item list
+    let para = [];
+    const endPara = () => {
+      if (para.length) blocks.push({ type: "p", text: para.join("\n") });
+      para = [];
+    };
+    text.split("\n").forEach((line) => {
+      if (!line.trim()) return endPara();
+      if (LIST_RE.test(line)) {
+        endPara();
+        blocks.push({ type: "li", depth: 0, marker: BULLET, text: line.replace(LIST_RE, "").trim() });
+      } else para.push(line.trim());
+    });
+    endPara();
+  };
+
+  const re = /<(\/?)([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>|([^<]+)/g;
+  let m;
+  while ((m = re.exec(src))) {
+    if (m[3] !== undefined) {
+      buf += inPre ? m[3] : m[3].replace(/\s+/g, " ");
+      continue;
+    }
+    const closing = m[1] === "/";
+    const tag = m[2].toLowerCase();
+
+    if (tag === "br") { buf += "\n"; continue; }
+
+    if (/^h[1-6]$/.test(tag)) { flush(); inHeading = !closing; continue; }
+
+    if (tag === "ul" || tag === "ol") {
+      flush();
+      if (closing) { lists.pop(); li = null; }
+      else lists.push({ ordered: tag === "ol", n: 0 });
+      continue;
+    }
+
+    if (tag === "li") {
+      flush();
+      if (closing) li = null;
+      else {
+        const top = lists[lists.length - 1] || { ordered: false, n: 0 };
+        if (top.ordered) top.n += 1;
+        li = { depth: Math.max(0, lists.length - 1), marker: top.ordered ? `${top.n}.` : BULLET };
+      }
+      continue;
+    }
+
+    if (tag === "pre") { flush(); inPre = !closing; continue; }
+
+    if ((tag === "td" || tag === "th") && closing) { buf += "  "; continue; }
+
+    if (["p", "div", "blockquote", "section", "tr", "table"].includes(tag)) flush();
+    // tag inline (b, strong, span, a, code, em, ...) diabaikan
+  }
+  flush();
+  return blocks;
+};
+
+// Gambar blok-blok tadi dengan jarak yang rapat & konsisten
+const renderRich = (doc, html, { size = 10.5 } = {}) => {
+  const UW = doc.page.width - 2 * M;
+  let prev = null;
+
+  parseBlocks(html).forEach((b) => {
+    if (b.type === "h") {
+      ensureSpace(doc, 46);
+      doc.y += 4;
+      doc.font("Helvetica-Bold").fontSize(12).fillColor(C.dark).text(b.text, M, doc.y, { width: UW });
+      doc.y += 4;
+    } else if (b.type === "code") {
+      codeBlock(doc, { code: b.text });
+    } else if (b.type === "li") {
+      const x0 = M + b.depth * 16;
+      const tx = x0 + 16;
+      const w = M + UW - tx;
+      doc.font("Helvetica").fontSize(size);
+      const h = doc.heightOfString(b.text, { width: w, lineGap: 2 });
+      ensureSpace(doc, Math.min(h, 60));
+      const y = doc.y;
+      if (b.marker) doc.fillColor(C.muted).text(b.marker, x0, y, { width: 16, lineBreak: false });
+      doc.fillColor(C.text).text(b.text, tx, y, { width: w, lineGap: 2 });
+      doc.x = M;
+      doc.y += 3;
+    } else {
+      if (prev === "li") doc.y += 3;
+      doc.font("Helvetica").fontSize(size).fillColor(C.text)
+        .text(b.text, M, doc.y, { width: UW, align: "left", lineGap: 2 });
+      doc.y += 6;
+    }
+    prev = b.type;
+  });
+  doc.x = M;
+};
 
 // pdfkit hanya mendukung PNG & JPEG
 const toImageBuffer = (src) => {
@@ -71,8 +206,8 @@ const heading = (doc, text, size = 13) => {
 
 const paragraph = (doc, text, opts = {}) => {
   doc.font(opts.font || "Helvetica").fontSize(opts.size || 10.5).fillColor(opts.color || C.text)
-    .text(text, M, doc.y, { align: "justify", lineGap: 3, ...opts.extra });
-  doc.moveDown(0.6);
+    .text(text, M, doc.y, { align: "justify", lineGap: 2, ...opts.extra });
+  doc.y += 6;
 };
 
 const drawImage = (doc, buf, maxH = 220) => {
@@ -144,22 +279,23 @@ const renderGuide = (doc, p, no) => {
 
   doc.font("Helvetica-Bold").fontSize(9).fillColor(C.primary)
     .text(clean(`${p.category.toUpperCase()}  /  GUIDE ${no}`), M, M);
-  doc.moveDown(0.3);
-  doc.font("Helvetica-Bold").fontSize(22).fillColor(C.dark).text(clean(p.title), M, doc.y, { width: uw });
-  doc.moveDown(0.3);
+  doc.y += 4;
+  doc.font("Helvetica-Bold").fontSize(20).fillColor(C.dark).text(clean(p.title), M, doc.y, { width: uw });
+  doc.y += 4;
   doc.font("Helvetica").fontSize(9).fillColor(C.muted)
     .text(clean(`Oleh ${p.author?.name || "Unknown"}  \u2022  ${fmtDate(p.createdAt)}`), M, doc.y);
-  if (p.tags?.length) {
-    doc.text(clean(`Tags: ${p.tags.join(", ")}`), M, doc.y);
+  if (p.tags?.length) doc.text(clean(`Tags: ${p.tags.join(", ")}`), M, doc.y);
+  doc.y += 8;
+  doc.save().moveTo(M, doc.y).lineTo(M + uw, doc.y).lineWidth(0.5).stroke(C.line).restore();
+  doc.y += 12;
+
+  if (p.excerpt) {
+    doc.font("Helvetica-Oblique").fontSize(10.5).fillColor(C.muted)
+      .text(clean(p.excerpt), M, doc.y, { width: uw, lineGap: 2 });
+    doc.y += 8;
   }
-  doc.moveDown(0.5);
-  doc.save().moveTo(M, doc.y).lineTo(M + uw, doc.y).lineWidth(1).stroke(C.line).restore();
-  doc.moveDown(0.8);
 
-  if (p.excerpt) paragraph(doc, clean(p.excerpt), { font: "Helvetica-Oblique", color: C.muted, extra: { align: "left" } });
-
-  const body = htmlToText(p.content);
-  if (body) paragraph(doc, body);
+  renderRich(doc, p.content);
 
   if (p.steps?.length) {
     heading(doc, "Langkah-langkah");
@@ -167,10 +303,11 @@ const renderGuide = (doc, p, no) => {
       ensureSpace(doc, 60);
       doc.font("Helvetica-Bold").fontSize(11).fillColor(C.primary)
         .text(clean(`${i + 1}. ${s.title || "Langkah " + (i + 1)}`), M, doc.y);
-      doc.moveDown(0.2);
-      if (s.description) paragraph(doc, htmlToText(s.description));
+      doc.y += 3;
+      if (s.description) renderRich(doc, s.description);
       const buf = toImageBuffer(s.image);
       if (buf) drawImage(doc, buf);
+      doc.y += 4;
     });
   }
 
@@ -185,9 +322,8 @@ const renderGuide = (doc, p, no) => {
   }
 
   if (p.pdfFile?.url) {
-    paragraph(doc, clean(`Lampiran PDF: ${p.pdfFile.name || "dokumen"} (lihat di aplikasi NetHub).`), {
-      font: "Helvetica-Oblique", color: C.muted, extra: { align: "left" },
-    });
+    doc.font("Helvetica-Oblique").fontSize(10).fillColor(C.muted)
+      .text(clean(`Lampiran PDF: ${p.pdfFile.name || "dokumen"} (lihat di aplikasi NetHub).`), M, doc.y, { width: uw });
   }
 };
 
@@ -226,17 +362,30 @@ export const exportAllGuidesPdf = async (req, res, next) => {
 
     // ===== 1. COVER =====
     doc.save().rect(0, 0, W, H).fill(C.dark).restore();
-    doc.save().rect(0, H * 0.58, W, 6).fill(C.primary).restore();
+
     if (fs.existsSync(LOGO_PATH)) {
-      try { doc.image(LOGO_PATH, M, 80, { fit: [110, 110] }); } catch {}
+    try { doc.image(LOGO_PATH, M, M + 10, { fit: [90, 90] }); } catch {}
     }
-    doc.font("Helvetica-Bold").fontSize(44).fillColor("#ffffff").text("IT Handbook", M, 260, { width: UW });
-    doc.font("Helvetica").fontSize(16).fillColor("#93c5fd")
-      .text("Kumpulan Panduan Jaringan & Infrastruktur IT", M, doc.y + 8, { width: UW });
+
+    doc.font("Helvetica-Bold").fontSize(46).fillColor("#ffffff")
+    .text("IT Handbook", M, H * 0.3, { width: UW });
+    doc.font("Helvetica").fontSize(15).fillColor("#93c5fd")
+    .text("Kumpulan Panduan Jaringan & Infrastruktur IT", M, doc.y + 4, { width: UW });
+
     doc.font("Helvetica").fontSize(11).fillColor("#cbd5e1")
-      .text(`${posts.length} guide  \u2022  ${chapters.length} kategori`, M, H * 0.58 + 30);
-    doc.text(`Diterbitkan ${fmtDate(today)}`, M, doc.y + 4);
-    doc.fontSize(10).fillColor("#64748b").text(BOOK_TITLE, M, H - 80);
+    .text(`${posts.length} guide  \u2022  ${chapters.length} kategori`, M, doc.y + 22);
+    doc.text(`Diterbitkan ${fmtDate(today)}`, M, doc.y + 2);
+
+    doc.font("Helvetica-Bold").fontSize(9).fillColor("#64748b")
+    .text("ISI BUKU", M, doc.y + 30);
+    doc.font("Helvetica").fontSize(10.5).fillColor("#94a3b8")
+    .text(chapters.map((c) => `${c.cat} (${c.items.length})`).join("   \u2022   "), M, doc.y + 6, {
+        width: UW,
+        lineGap: 4,
+    });
+
+    doc.font("Helvetica").fontSize(9).fillColor("#64748b")
+    .text(BOOK_TITLE, M, H - 60, { width: UW, lineBreak: false });
 
     // ===== 2. KATA PENGANTAR =====
     doc.addPage();
@@ -284,42 +433,29 @@ export const exportAllGuidesPdf = async (req, res, next) => {
     paragraph(doc, `Dokumen ini dibuat otomatis pada ${fmtDate(today)}.`, { size: 10, color: C.muted, font: "Helvetica-Oblique" });
 
     // ===== isi DAFTAR ISI =====
-    for (let t = 0; t < tocPages; t++) {
-      doc.switchToPage(tocStart + t);
-      let y = M;
-      if (t === 0) {
-        doc.font("Helvetica-Bold").fontSize(26).fillColor(C.dark).text("Daftar Isi", M, y);
-        y += 50;
-      }
-      const slice = toc.slice(t * perPage - (t === 0 ? 0 : 2), (t + 1) * perPage - 2);
-      // hitung ulang slice sederhana: halaman 1 muat (perPage-2) entri, sisanya perPage
-      void slice;
-    }
-    // — versi sederhana & aman: bagi entri berdasarkan kapasitas tiap halaman
     let cursor = 0;
     for (let t = 0; t < tocPages; t++) {
-      doc.switchToPage(tocStart + t);
-      let y = M;
-      const cap = t === 0 ? perPage - 2 : perPage;
-      if (t > 0) {
-        // judul hanya di halaman pertama
-      }
-      toc.slice(cursor, cursor + cap).forEach((e) => {
+    doc.switchToPage(tocStart + t);
+    let y = M;
+    if (t === 0) {
+        doc.font("Helvetica-Bold").fontSize(26).fillColor(C.dark).text("Daftar Isi", M, y);
+        y += 50;
+    }
+    const cap = t === 0 ? perPage - 2 : perPage;
+    toc.slice(cursor, cursor + cap).forEach((e) => {
         const x = M + e.level * 18;
         const label = e.label.length > 70 ? e.label.slice(0, 67) + "..." : e.label;
-        const font = e.bold ? "Helvetica-Bold" : "Helvetica";
         const pageNo = String(e.page + 1);
-        doc.font(font).fontSize(e.level ? 10 : 11).fillColor(C.text);
+        doc.font(e.bold ? "Helvetica-Bold" : "Helvetica").fontSize(e.level ? 10 : 11).fillColor(C.text);
         const lw = doc.widthOfString(label);
         const nw = doc.widthOfString(pageNo);
-        const yy = t === 0 ? y + 50 : y;
-        doc.text(label, x, yy, { lineBreak: false });
-        doc.text(pageNo, M + UW - nw, yy, { lineBreak: false });
-        doc.save().moveTo(x + lw + 6, yy + 9).lineTo(M + UW - nw - 6, yy + 9)
-          .dash(1, { space: 3 }).lineWidth(0.5).stroke(C.line).undash().restore();
+        doc.text(label, x, y, { lineBreak: false });
+        doc.text(pageNo, M + UW - nw, y, { lineBreak: false });
+        doc.save().moveTo(x + lw + 6, y + 9).lineTo(M + UW - nw - 6, y + 9)
+        .dash(1, { space: 3 }).lineWidth(0.5).stroke(C.line).undash().restore();
         y += ROW;
-      });
-      cursor += cap;
+    });
+    cursor += cap;
     }
 
     // ===== footer nomor halaman (kecuali cover) =====
