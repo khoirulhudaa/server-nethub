@@ -16,6 +16,7 @@
     getPostById,
   } from "../controllers/postController.js";
   import { protect, optionalAuth } from "../middleware/auth.js";
+import { exportAllGuidesPdf } from "../controllers/exportController.js";
 
   const router = Router();
 
@@ -27,6 +28,7 @@
   router.get("/:slug", optionalAuth, getPostBySlug);
   router.post("/", protect, createPost);
   router.put("/:id", protect, updatePost);
+  router.get("/export/pdf", optionalAuth, exportAllGuidesPdf);
   router.delete("/:id", protect, deletePost);
   router.patch("/:id/pin", protect, togglePin);
   router.patch("/:id/like", protect, toggleLike);
