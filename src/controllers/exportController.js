@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import PDFDocument from "pdfkit";
 import Post, { POST_CATEGORIES } from "../models/Post.js";
+import { fileURLToPath } from "url";
 
 const C = {
   primary: "#1d4ed8",
