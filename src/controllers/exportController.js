@@ -263,10 +263,6 @@ const drawOrnament = (doc) => {
 
   doc.save();
 
-  // 1. Bar aksen di sisi kiri (dua warna: biru + segmen gelap di atas)
-  doc.rect(0, 0, 6, H).fill(C.primary);
-  doc.rect(0, 0, 6, 90).fill(C.dark);
-
   // 2. Lingkaran konsentris samar di pojok kanan atas
   [70, 52, 34].forEach((r, i) => {
     doc.circle(W, 0, r).lineWidth(0.8).strokeOpacity(0.35 - i * 0.08).stroke(C.primary);
@@ -281,6 +277,11 @@ const drawOrnament = (doc) => {
     }
   }
   doc.fillOpacity(1);
+
+  // 4. Garis footer + aksen tebal di kiri
+  doc.moveTo(M, H - 46).lineTo(M + UW, H - 46).lineWidth(0.5).stroke(C.line);
+  doc.moveTo(M, H - 46).lineTo(M + 36, H - 46).lineWidth(2).stroke(C.primary);
+
   doc.restore();
 };
 
