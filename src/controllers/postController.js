@@ -130,8 +130,6 @@ export const getPosts = async (req, res, next) => {
     const skip = (pageNum - 1) * limitNum;
     const uid = getUid(req);
     const readingSet = await getReadingSet(uid);
-    const related = (await getRelatedPosts(post, 4)).map((p) => withPinned(p, uid, readingSet));
-    // res.json({ post: withPinned(post, uid, readingSet), related });
 
     // Semua tag yang ada, untuk mengisi dropdown filter di frontend
     const allTags = (await Post.distinct("tags")).filter(Boolean).sort();
@@ -241,6 +239,7 @@ export const getPostBySlug = async (req, res, next) => {
     if (!post) return res.status(404).json({ message: "Post not found" });
 
     const uid = getUid(req);
+    const readingSet = await getReadingSet(uid);
     const related = (await getRelatedPosts(post, 4)).map((p) => withPinned(p, uid, readingSet));
 
     res.json({ post: withPinned(post, uid, readingSet), related });
