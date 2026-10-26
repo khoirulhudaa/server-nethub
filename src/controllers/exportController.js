@@ -1,8 +1,8 @@
 import fs from "fs";
 import path from "path";
 import PDFDocument from "pdfkit";
-import Post, { POST_CATEGORIES } from "../models/Post.js";
 import { fileURLToPath } from "url";
+import Post, { POST_CATEGORIES } from "../models/Post.js";
 
 const C = {
   primary: "#1d4ed8",
@@ -13,6 +13,7 @@ const C = {
   soft: "#f1f5f9",
 };
 const M = 56; // margin
+const IND = 18;
 const BOOK_TITLE = "NetHub IT Handbook";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // controllers -> naik satu level ke src -> assets
@@ -34,7 +35,8 @@ const clean = (s = "") =>
     .replace(/[^\x09\x0A\x20-\x7E\u00A1-\u00FF\u2022]/g, "");
 
 const BULLET = "-"; // penanda list; ganti ke "•" kalau mau titik
-const LIST_RE = /^\s*[-*\u2022\u2013]\s+/; // "-", "*", "•", "–" yang diketik manual
+const LIST_RE = /^\s*[-*\u2022\u2013]\s+/;                  // tetap, dipakai di <li>
+const MANUAL_RE = /^\s*([-*\u2022\u2013]|\d+[.)])\s+/;    // "-", "*", "•", "–" yang diketik manual
 
 const decodeEntities = (s) =>
   s
@@ -52,7 +54,11 @@ const parseBlocks = (html = "") => {
   .replace(/<img[^>]*>/gi, "")
   .replace(/<(?![a-zA-Z\/!])/g, "&lt;");   // "<" yang bukan tag → teks
   // konten tanpa tag HTML → baris baru dianggap <br>
-  if (!/<[a-z][^>]*>/i.test(src)) src = src.replace(/\r?\n/g, "<br>");
+  if (!/<[a-z][^>]*>/i.test(src)) {
+    src = src
+      .replace(/^[ \t]+/gm, (s) => "&nbsp;".repeat(s.replace(/\t/g, "    ").length))
+      .replace(/\r?\n/g, "<br>");
+  }
 
   const blocks = [];
   const lists = [];
@@ -60,6 +66,7 @@ const parseBlocks = (html = "") => {
   let inPre = false;
   let inHeading = false;
   let li = null;
+  let numBase = 0;
 
   const flush = () => {
     const raw = buf;
@@ -72,9 +79,9 @@ const parseBlocks = (html = "") => {
     }
 
     const text = clean(decodeEntities(raw))
-      .replace(/[ \t]*\n[ \t]*/g, "\n")
+      .replace(/[ \t]+\n/g, "\n")      // hanya spasi di akhir baris
       .replace(/^\n+|\n+$/g, "")
-      .trim();
+      .trimEnd();
     if (!text) return;
 
     if (inHeading) {
@@ -83,11 +90,12 @@ const parseBlocks = (html = "") => {
     }
 
     if (li) {
+      const isBulletItem = li.marker === BULLET || li.marker === null;
       blocks.push({
         type: "li",
-        depth: li.depth,
-        marker: li.marker, // null = lanjutan item sebelumnya
-        text: text.replace(LIST_RE, "").trim(), // buang "-" manual → tidak dobel
+        depth: li.depth + (isBulletItem ? numBase : 0),
+        marker: li.marker,
+        text: text.replace(LIST_RE, "").trim(),
       });
       li.marker = null;
       return;
@@ -96,15 +104,29 @@ const parseBlocks = (html = "") => {
     // paragraf biasa; baris yang diawali "- " dijadikan item list
     let para = [];
     const endPara = () => {
-      if (para.length) blocks.push({ type: "p", text: para.join("\n") });
+      if (para.length) { blocks.push({ type: "p", text: para.join("\n") }); numBase = 0; }
       para = [];
     };
+    let lastNumDepth = -1;
     text.split("\n").forEach((line) => {
       if (!line.trim()) return endPara();
-      if (LIST_RE.test(line)) {
-        endPara();
-        blocks.push({ type: "li", depth: 0, marker: BULLET, text: line.replace(LIST_RE, "").trim() });
-      } else para.push(line.trim());
+      const mm = MANUAL_RE.exec(line);
+      if (!mm) { para.push(line.trim()); return; }
+
+      endPara();
+      const lead = line.match(/^\s*/)[0].length;
+      const isNum = /\d/.test(mm[1]);
+      let depth = Math.min(3, Math.floor(lead / 2));
+
+      if (isNum) numBase = depth + 1;
+      else if (numBase > 0 && depth < numBase) depth = numBase; // bullet manual di bawah angka
+
+      blocks.push({
+        type: "li",
+        depth,
+        marker: isNum ? mm[1] : BULLET,
+        text: line.replace(MANUAL_RE, "").trim(),
+      });
     });
     endPara();
   };
@@ -121,7 +143,7 @@ const parseBlocks = (html = "") => {
 
     if (tag === "br") { buf += "\n"; continue; }
 
-    if (/^h[1-6]$/.test(tag)) { flush(); inHeading = !closing; continue; }
+    if (/^h[1-6]$/.test(tag)) { flush(); inHeading = !closing; numBase = 0; continue; }
 
     if (tag === "ul" || tag === "ol") {
       flush();
@@ -135,8 +157,14 @@ const parseBlocks = (html = "") => {
       if (closing) li = null;
       else {
         const top = lists[lists.length - 1] || { ordered: false, n: 0 };
-        if (top.ordered) top.n += 1;
-        li = { depth: Math.max(0, lists.length - 1), marker: top.ordered ? `${top.n}.` : BULLET };
+        const ind = /ql-indent-(\d+)/.exec(m[0]);
+        const isBullet = /data-list="bullet"/.test(m[0]);
+        const ordered = top.ordered && !isBullet;
+        if (ordered) { top.n += 1; numBase = 0; }
+        li = {
+          depth: ind ? Number(ind[1]) : Math.max(0, lists.length - 1),
+          marker: ordered ? `${top.n}.` : BULLET,
+        };
       }
       continue;
     }
@@ -166,8 +194,8 @@ const renderRich = (doc, html, { size = 10.5 } = {}) => {
     } else if (b.type === "code") {
       codeBlock(doc, { code: b.text });
     } else if (b.type === "li") {
-      const x0 = M + b.depth * 16;
-      const tx = x0 + 16;
+      const x0 = M + b.depth * IND;
+      const tx = x0 + IND;
       const w = M + UW - tx;
       doc.font("Helvetica").fontSize(size);
       const h = doc.heightOfString(b.text, { width: w, lineGap: 2 });
