@@ -47,13 +47,11 @@ const decodeEntities = (s) =>
     .replace(/&#39;/g, "'")
     .replace(/&amp;/g, "&");
 
-// HTML / teks biasa → array blok { type: h | p | li | code }
 const parseBlocks = (html = "") => {
   let src = String(html)
-  .replace(/<\s*(script|style)[^>]*>[\s\S]*?<\/\s*\1\s*>/gi, "")
-  .replace(/<img[^>]*>/gi, "")
-  .replace(/<(?![a-zA-Z\/!])/g, "&lt;");   // "<" yang bukan tag → teks
-  // konten tanpa tag HTML → baris baru dianggap <br>
+    .replace(/<\s*(script|style)[^>]*>[\s\S]*?<\/\s*\1\s*>/gi, "")
+    .replace(/<img[^>]*>/gi, "")
+    .replace(/<(?![a-zA-Z\/!])/g, "&lt;");
   if (!/<[a-z][^>]*>/i.test(src)) {
     src = src
       .replace(/^[ \t]+/gm, (s) => "&nbsp;".repeat(s.replace(/\t/g, "    ").length))
@@ -66,7 +64,64 @@ const parseBlocks = (html = "") => {
   let inPre = false;
   let inHeading = false;
   let li = null;
-  let numBase = 0;
+  let numBase = 0; // > 0 = sedang berada di bawah item "N. judul" manual
+
+  // Pecah teks per baris; dipakai untuk paragraf (base = null) dan isi <li> (base = {depth, marker})
+  const emitLines = (text, base) => {
+    let cur = null;
+    let usedBase = false;
+
+    const close = () => {
+      if (cur && cur.lines.length) {
+        const { lines, ...rest } = cur;
+        blocks.push({ ...rest, text: lines.join("\n") });
+        if (rest.type === "p") numBase = 0;
+      }
+      cur = null;
+    };
+
+    const openPlain = () => {
+      if (base) {
+        cur = { type: "li", depth: base.depth, marker: usedBase ? null : base.marker, lines: [] };
+        usedBase = true;
+      } else {
+        cur = { type: "p", lines: [] };
+      }
+    };
+
+    text.split("\n").forEach((line) => {
+      if (!line.trim()) return close();
+
+      const mm = MANUAL_RE.exec(line);
+      if (mm) {
+        close();
+        usedBase = true; // marker manual menggantikan marker <li> → tidak dobel
+        const isNum = /\d/.test(mm[1]);
+        const lead = line.match(/^\s*/)[0].length;
+        const baseDepth = base ? base.depth : Math.min(3, Math.floor(lead / 2));
+
+        let depth;
+        if (isNum) {
+          depth = numBase > 0 ? numBase - 1 : baseDepth; // angka selalu di level yang sama
+          numBase = depth + 1;
+        } else {
+          depth = Math.max(baseDepth, numBase); // bullet di bawah angka → menjorok
+        }
+
+        cur = {
+          type: "li",
+          depth,
+          marker: isNum ? mm[1] : BULLET,
+          lines: [line.replace(MANUAL_RE, "").trim()],
+        };
+        return;
+      }
+
+      if (!cur) openPlain();
+      cur.lines.push(line.trim());
+    });
+    close();
+  };
 
   const flush = () => {
     const raw = buf;
@@ -79,56 +134,27 @@ const parseBlocks = (html = "") => {
     }
 
     const text = clean(decodeEntities(raw))
-      .replace(/[ \t]+\n/g, "\n")      // hanya spasi di akhir baris
+      .replace(/[ \t]+\n/g, "\n")
       .replace(/^\n+|\n+$/g, "")
       .trimEnd();
-    if (!text) return;
+    if (!text.trim()) return;
 
     if (inHeading) {
-      blocks.push({ type: "h", text: text.replace(/\n/g, " ") });
+      blocks.push({ type: "h", text: text.replace(/\n/g, " ").trim() });
       return;
     }
 
     if (li) {
       const isBulletItem = li.marker === BULLET || li.marker === null;
-      blocks.push({
-        type: "li",
+      emitLines(text, {
         depth: li.depth + (isBulletItem ? numBase : 0),
         marker: li.marker,
-        text: text.replace(LIST_RE, "").trim(),
       });
       li.marker = null;
       return;
     }
 
-    // paragraf biasa; baris yang diawali "- " dijadikan item list
-    let para = [];
-    const endPara = () => {
-      if (para.length) { blocks.push({ type: "p", text: para.join("\n") }); numBase = 0; }
-      para = [];
-    };
-    let lastNumDepth = -1;
-    text.split("\n").forEach((line) => {
-      if (!line.trim()) return endPara();
-      const mm = MANUAL_RE.exec(line);
-      if (!mm) { para.push(line.trim()); return; }
-
-      endPara();
-      const lead = line.match(/^\s*/)[0].length;
-      const isNum = /\d/.test(mm[1]);
-      let depth = Math.min(3, Math.floor(lead / 2));
-
-      if (isNum) numBase = depth + 1;
-      else if (numBase > 0 && depth < numBase) depth = numBase; // bullet manual di bawah angka
-
-      blocks.push({
-        type: "li",
-        depth,
-        marker: isNum ? mm[1] : BULLET,
-        text: line.replace(MANUAL_RE, "").trim(),
-      });
-    });
-    endPara();
+    emitLines(text, null);
   };
 
   const re = /<(\/?)([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>|([^<]+)/g;
@@ -174,7 +200,6 @@ const parseBlocks = (html = "") => {
     if ((tag === "td" || tag === "th") && closing) { buf += "  "; continue; }
 
     if (["p", "div", "blockquote", "section", "tr", "table"].includes(tag)) flush();
-    // tag inline (b, strong, span, a, code, em, ...) diabaikan
   }
   flush();
   return blocks;
@@ -201,7 +226,7 @@ const renderRich = (doc, html, { size = 10.5 } = {}) => {
       const h = doc.heightOfString(b.text, { width: w, lineGap: 2 });
       ensureSpace(doc, Math.min(h, 60));
       const y = doc.y;
-      if (b.marker) doc.fillColor(C.muted).text(b.marker, x0, y, { width: 16, lineBreak: false });
+      if (b.marker) doc.fillColor(C.muted).text(b.marker, x0, y, { width: IND, lineBreak: false });
       doc.fillColor(C.text).text(b.text, tx, y, { width: w, lineGap: 2 });
       doc.x = M;
       doc.y += 3;
