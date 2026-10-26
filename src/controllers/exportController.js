@@ -499,7 +499,7 @@ export const exportAllGuidesPdf = async (req, res, next) => {
     doc.addPage();
     toc.push({ label: "Kata Pengantar", page: pageIndex(doc), level: 0 });
     dividerPages.add(pageIndex(doc));
-    doc.font("Helvetica-Bold").fontSize(26).fillColor(C.dark).text("Kata Pengantar", M, M);
+    doc.font("Helvetica-Bold").fontSize(20).fillColor(C.dark).text("Kata Pengantar", M, M);
     doc.moveDown(1);
     paragraph(doc, "Buku panduan ini merupakan kumpulan guide yang ditulis dan dibagikan oleh komunitas NetHub. Isinya mencakup berbagai topik seputar jaringan dan infrastruktur IT, mulai dari topologi, instalasi, pemeliharaan, hingga perangkat keras dan sistem-sistem pendukung.", { size: 11 });
     paragraph(doc, "Setiap guide disusun per kategori dalam bentuk bab, sehingga mudah dicari dan dijadikan referensi kerja sehari-hari. Gunakan daftar isi di halaman berikutnya untuk menuju topik yang Anda butuhkan.", { size: 11 });
@@ -520,9 +520,9 @@ export const exportAllGuidesPdf = async (req, res, next) => {
       doc.addPage();
       toc.push({ label: `Bab ${ci + 1}. ${ch.cat}`, page: pageIndex(doc), level: 0, bold: true });
       doc.save().rect(0, 0, W, H).fill(C.primary).restore();
-      doc.font("Helvetica").fontSize(14).fillColor("#bfdbfe").text(`BAB ${ci + 1}`, M, H * 0.38);
-      doc.font("Helvetica-Bold").fontSize(40).fillColor("#ffffff").text(clean(ch.cat), M, doc.y + 6, { width: UW });
-      doc.font("Helvetica").fontSize(12).fillColor("#dbeafe")
+      doc.font("Helvetica").fontSize(12).fillColor("#bfdbfe").text(`BAB ${ci + 1}`, M, H * 0.38);
+      doc.font("Helvetica-Bold").fontSize(30).fillColor("#ffffff").text(clean(ch.cat), M, doc.y + 6, { width: UW });
+      doc.font("Helvetica").fontSize(11).fillColor("#dbeafe")
         .text(`${ch.items.length} guide`, M, doc.y + 8);
 
       ch.items.forEach((p, gi) => {
@@ -535,7 +535,7 @@ export const exportAllGuidesPdf = async (req, res, next) => {
     // ===== 5. KATA PENUTUP =====
     doc.addPage();
     toc.push({ label: "Kata Penutup", page: pageIndex(doc), level: 0 });
-    doc.font("Helvetica-Bold").fontSize(26).fillColor(C.dark).text("Kata Penutup", M, M);
+    doc.font("Helvetica-Bold").fontSize(20).fillColor(C.dark).text("Kata Penutup", M, M);
     doc.moveDown(1);
     paragraph(doc, "Terima kasih telah membaca buku panduan ini. Pengetahuan teknis terus berkembang, karena itu guide dalam buku ini akan diperbarui secara berkala oleh komunitas.", { size: 11 });
     paragraph(doc, "Jika Anda menemukan kekurangan atau ingin menambahkan ilmu baru, silakan berkontribusi dengan membuat guide melalui aplikasi NetHub. Setiap kontribusi sekecil apa pun sangat berarti bagi pembelajaran bersama.", { size: 11 });
@@ -547,8 +547,8 @@ export const exportAllGuidesPdf = async (req, res, next) => {
     doc.switchToPage(tocStart + t);
     let y = M;
     if (t === 0) {
-        doc.font("Helvetica-Bold").fontSize(26).fillColor(C.dark).text("Daftar Isi", M, y);
-        y += 50;
+        doc.font("Helvetica-Bold").fontSize(20).fillColor(C.dark).text("Daftar Isi", M, y);
+        y += 42;
     }
     const cap = t === 0 ? perPage - 2 : perPage;
     toc.slice(cursor, cursor + cap).forEach((e) => {
