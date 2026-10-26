@@ -517,6 +517,8 @@ export const exportAllGuidesPdf = async (req, res, next) => {
     paragraph(doc, `Edisi ini memuat ${posts.length} guide dalam ${chapters.length} kategori dan akan terus bertambah seiring kontribusi tim IT Pintex. Karena perangkat dan sistem terus berubah, sebagian langkah mungkin perlu disesuaikan, dan sebaiknya simpan cadangan sebelum mengubah konfigurasi.`, { size: 11 });
     paragraph(doc, ``, { size: 11 });
     paragraph(doc, ``, { size: 11 });
+    paragraph(doc, ``, { size: 11 });
+    paragraph(doc, ``, { size: 11 });
 
     paragraph(doc, "Selamat belajar dan semoga bermanfaat.", { size: 11, font: "Helvetica-Oblique" });
     paragraph(doc, "Tim IT Pintex", { size: 11, font: "Helvetica-Bold" });
