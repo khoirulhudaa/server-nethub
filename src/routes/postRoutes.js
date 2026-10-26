@@ -14,6 +14,7 @@
     getTrendingPosts,
     getPostStats,
     getPostById,
+    removeFromReadingList,
   } from "../controllers/postController.js";
   import { protect, optionalAuth } from "../middleware/auth.js";
 import { exportAllGuidesPdf } from "../controllers/exportController.js";
@@ -36,6 +37,7 @@ import { exportAllGuidesPdf } from "../controllers/exportController.js";
   router.get("/users/me/bookmarks", protect, getMyBookmarks);
   router.post("/:id/bookmark", protect, toggleBookmark);
   router.patch("/:id/like", protect, toggleLike);
+  router.delete("/me/reading-list/:postId", protect, removeFromReadingList);
   router.patch("/:id/pin", protect, togglePin);
   router.post("/:id/bookmark", protect, toggleBookmark);
   router.get("/me/likes", protect, getMyLikedPosts);

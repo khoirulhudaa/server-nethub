@@ -29,10 +29,13 @@ const withPinned = (doc, uid, readingSet = null) => {
 // ambil set id reading list milik user
 const getReadingSet = async (uid) => {
   if (!uid) return null;
-  const u = await User.findById(uid).lean();   // tanpa select
-  console.log("USER KEYS:", Object.keys(u || {}));
-  console.log("READING LIST:", u?.readingList);
-  return new Set((u?.readingList || []).map(String));
+  const u = await User.findById(uid).select("readingList.post").lean();
+  return new Set(
+    (u?.readingList || [])
+      .map((x) => x?.post)
+      .filter(Boolean)
+      .map(String)
+  );
 };
 
 export const createPost = async (req, res, next) => {
@@ -569,6 +572,27 @@ export const getPostStats = async (req, res, next) => {
       totalReads: result?.totalReads || 0,
       totalCategories: POST_CATEGORIES.length,
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const removeFromReadingList = async (req, res, next) => {
+  try {
+    const { postId } = req.params;
+
+    await User.findByIdAndUpdate(req.user._id, {
+      $pull: { readingList: { post: postId } },
+    });
+
+    // rapikan urutan agar order tetap 1..n
+    const u = await User.findById(req.user._id);
+    u.readingList
+      .sort((a, b) => a.order - b.order)
+      .forEach((item, i) => (item.order = i + 1));
+    await u.save();
+
+    res.json({ message: "Dihapus dari reading list" });
   } catch (err) {
     next(err);
   }
