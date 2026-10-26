@@ -281,11 +281,6 @@ const drawOrnament = (doc) => {
     }
   }
   doc.fillOpacity(1);
-
-  // 4. Garis footer + aksen tebal di kiri
-  doc.moveTo(M, H - 46).lineTo(M + UW, H - 46).lineWidth(0.5).stroke(C.line);
-  doc.moveTo(M, H - 46).lineTo(M + 36, H - 46).lineWidth(2).stroke(C.primary);
-
   doc.restore();
 };
 
