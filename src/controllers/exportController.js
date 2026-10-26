@@ -250,21 +250,22 @@ const toImageBuffer = (src) => {
 const fmtDate = (d) =>
   new Date(d).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
 
+
 const pageIndex = (doc) => {
   const r = doc.bufferedPageRange();
   return r.start + r.count - 1;
 };
 
-const drawOrnament = (doc, pageNo) => {
+const drawOrnament = (doc) => {
   const W = doc.page.width;
   const H = doc.page.height;
   const UW = W - 2 * M;
 
   doc.save();
 
-  // 1. Bar aksen di atas (dua warna)
-  doc.rect(0, 0, W, 6).fill(C.primary);
-  doc.rect(0, 0, 90, 6).fill(C.dark);
+  // 1. Bar aksen di sisi kiri (dua warna: biru + segmen gelap di atas)
+  doc.rect(0, 0, 6, H).fill(C.primary);
+  doc.rect(0, 0, 6, 90).fill(C.dark);
 
   // 2. Lingkaran konsentris samar di pojok kanan atas
   [70, 52, 34].forEach((r, i) => {
@@ -284,10 +285,6 @@ const drawOrnament = (doc, pageNo) => {
   // 4. Garis footer + aksen tebal di kiri
   doc.moveTo(M, H - 46).lineTo(M + UW, H - 46).lineWidth(0.5).stroke(C.line);
   doc.moveTo(M, H - 46).lineTo(M + 36, H - 46).lineWidth(2).stroke(C.primary);
-
-  // 5. Pita kecil di tepi kanan, berganti sisi kiri/kanan tiap halaman
-  const onRight = pageNo % 2 === 0;
-  doc.rect(onRight ? W - 4 : 0, H * 0.45, 4, 60).fill(C.primary);
 
   doc.restore();
 };
@@ -578,7 +575,7 @@ export const exportAllGuidesPdf = async (req, res, next) => {
     const range = doc.bufferedPageRange();
     for (let i = 1; i < range.count; i++) {
       doc.switchToPage(i);
-      if (!dividerPages.has(i)) drawOrnament(doc, i);
+      if (!dividerPages.has(i)) drawOrnament(doc);
       const oldBottom = doc.page.margins.bottom;
       doc.page.margins.bottom = 0; // cegah auto page-break saat nulis footer
       doc.font("Helvetica").fontSize(8).fillColor(C.muted);
