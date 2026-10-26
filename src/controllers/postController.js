@@ -15,14 +15,22 @@ const getUid = (req) =>
     : null;
 
 // Ubah dokumen jadi object dengan isPinned milik user ini
-const withPinned = (doc, uid) => {
+const withPinned = (doc, uid, readingSet = null) => {
   const obj = typeof doc.toObject === "function" ? doc.toObject() : { ...doc };
   obj.isPinned = uid
     ? (obj.pinnedBy || []).some((id) => String(id) === String(uid))
     : false;
+  obj.inReadingList = readingSet ? readingSet.has(String(obj._id)) : false;
   delete obj.pinnedBy;
   delete obj.pinTimes;
   return obj;
+};
+
+// ambil set id reading list milik user
+const getReadingSet = async (uid) => {
+  if (!uid) return null;
+  const u = await User.findById(uid).select("readingList").lean();
+  return new Set((u?.readingList || []).map(String));
 };
 
 export const createPost = async (req, res, next) => {
@@ -121,6 +129,9 @@ export const getPosts = async (req, res, next) => {
     // const skip = (Number(page) - 1) * Number(limit);
     const skip = (pageNum - 1) * limitNum;
     const uid = getUid(req);
+    const readingSet = await getReadingSet(uid);
+    const related = (await getRelatedPosts(post, 4)).map((p) => withPinned(p, uid, readingSet));
+    // res.json({ post: withPinned(post, uid, readingSet), related });
 
     // Semua tag yang ada, untuk mengisi dropdown filter di frontend
     const allTags = (await Post.distinct("tags")).filter(Boolean).sort();
@@ -145,7 +156,7 @@ export const getPosts = async (req, res, next) => {
       ]);
       return res.json({
         pinned: [],
-        posts: posts.map((p) => withPinned(p, uid)),
+        posts: posts.map((p) => withPinned(p, uid, readingSet)),
         ...meta(total),
       });
     }
@@ -193,8 +204,8 @@ export const getPosts = async (req, res, next) => {
     const pinned = pinnedRaw.sort((a, b) => pinTime(b) - pinTime(a)).slice(0, 6);
 
     res.json({
-      pinned: pinned.map((p) => withPinned(p, uid)),
-      posts: posts.map((p) => withPinned(p, uid)),
+      pinned: pinned.map((p) => withPinned(p, uid, readingSet)),
+      posts: posts.map((p) => withPinned(p, uid, readingSet)),
       ...meta(total),
     });
   } catch (err) {
@@ -230,9 +241,9 @@ export const getPostBySlug = async (req, res, next) => {
     if (!post) return res.status(404).json({ message: "Post not found" });
 
     const uid = getUid(req);
-    const related = (await getRelatedPosts(post, 4)).map((p) => withPinned(p, uid));
+    const related = (await getRelatedPosts(post, 4)).map((p) => withPinned(p, uid, readingSet));
 
-    res.json({ post: withPinned(post, uid), related });
+    res.json({ post: withPinned(post, uid, readingSet), related });
   } catch (err) {
     next(err);
   }
