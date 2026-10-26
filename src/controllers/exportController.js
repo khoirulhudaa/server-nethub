@@ -371,7 +371,7 @@ const renderGuide = (doc, p, no) => {
   doc.font("Helvetica-Bold").fontSize(9).fillColor(C.primary)
     .text(clean(`${p.category.toUpperCase()}  /  GUIDE ${no}`), M, M);
   doc.y += 4;
-  doc.font("Helvetica-Bold").fontSize(20).fillColor(C.dark).text(clean(p.title), M, doc.y, { width: uw });
+  doc.font("Helvetica-Bold").fontSize(16).fillColor(C.dark).text(clean(p.title), M, doc.y, { width: uw });
   doc.y += 4;
   doc.font("Helvetica").fontSize(9).fillColor(C.muted)
     .text(clean(`Oleh ${p.author?.name || "Unknown"}  \u2022  ${fmtDate(p.createdAt)}`), M, doc.y);
