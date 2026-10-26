@@ -29,7 +29,9 @@ const withPinned = (doc, uid, readingSet = null) => {
 // ambil set id reading list milik user
 const getReadingSet = async (uid) => {
   if (!uid) return null;
-  const u = await User.findById(uid).select("readingList").lean();
+  const u = await User.findById(uid).lean();   // tanpa select
+  console.log("USER KEYS:", Object.keys(u || {}));
+  console.log("READING LIST:", u?.readingList);
   return new Set((u?.readingList || []).map(String));
 };
 
