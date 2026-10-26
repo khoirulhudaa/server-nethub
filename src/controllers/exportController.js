@@ -375,7 +375,7 @@ const renderGuide = (doc, p, no) => {
   doc.y += 4;
   doc.font("Helvetica").fontSize(9).fillColor(C.muted)
     .text(clean(`Oleh ${p.author?.name || "Unknown"}  \u2022  ${fmtDate(p.createdAt)}`), M, doc.y);
-  if (p.tags?.length) doc.text(clean(`Tags: ${p.tags.join(", ")}`), M, doc.y);
+  // if (p.tags?.length) doc.text(clean(`Tags: ${p.tags.join(", ")}`), M, doc.y);
   doc.y += 8;
   doc.save().moveTo(M, doc.y).lineTo(M + uw, doc.y).lineWidth(0.5).stroke(C.line).restore();
   doc.y += 12;
