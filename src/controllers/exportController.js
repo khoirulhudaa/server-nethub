@@ -467,9 +467,10 @@ export const exportAllGuidesPdf = async (req, res, next) => {
     doc.save().rect(0, 0, W, H).fill(C.dark).restore();
 
     const LOGO_SIZE = 150;
-    const LOGO_X = M - 16;          // geser kiri untuk mengkompensasi padding transparan PNG
-    const LOGO_Y = M;
-    const TITLE_Y = LOGO_Y + LOGO_SIZE + 28; // jarak tetap di bawah logo
+    const COVER_BLOCK_H = 410;                              // perkiraan tinggi seluruh isi cover
+    const LOGO_Y = Math.round((H - COVER_BLOCK_H) / 2);     // tengah vertikal
+    const LOGO_X = M - 16;
+    const TITLE_Y = LOGO_Y + LOGO_SIZE + 28;
 
     if (fs.existsSync(LOGO_PATH)) {
     try {
@@ -507,10 +508,21 @@ export const exportAllGuidesPdf = async (req, res, next) => {
     dividerPages.add(pageIndex(doc));
     doc.font("Helvetica-Bold").fontSize(20).fillColor(C.dark).text("Kata Pengantar", M, M);
     doc.moveDown(1);
-    paragraph(doc, "Buku panduan ini merupakan kumpulan guide yang ditulis dan dibagikan oleh komunitas NetHub. Isinya mencakup berbagai topik seputar jaringan dan infrastruktur IT, mulai dari topologi, instalasi, pemeliharaan, hingga perangkat keras dan sistem-sistem pendukung.", { size: 11 });
-    paragraph(doc, "Setiap guide disusun per kategori dalam bentuk bab, sehingga mudah dicari dan dijadikan referensi kerja sehari-hari. Gunakan daftar isi di halaman berikutnya untuk menuju topik yang Anda butuhkan.", { size: 11 });
-    paragraph(doc, `Edisi ini memuat ${posts.length} guide dalam ${chapters.length} kategori dan akan terus bertambah seiring kontribusi anggota komunitas.`, { size: 11 });
+    paragraph(doc, "Puji syukur kami panjatkan kepada Tuhan Yang Maha Esa atas terselesaikannya buku panduan ini. Buku ini disusun oleh tim IT Pintex sebagai kumpulan dokumentasi teknis yang selama ini tersebar di berbagai catatan dan percakapan, lalu dirangkum menjadi satu rujukan yang rapi dan mudah dibuka kapan saja.", { size: 11 });
+
+    paragraph(doc, "Latar belakang penyusunannya sederhana: persoalan yang sama sering muncul berulang kali di lapangan, mulai dari konfigurasi perangkat jaringan, gangguan koneksi, hingga masalah printer dan komputer pengguna. Setiap kali muncul, solusinya dicari ulang dari awal. Dengan mencatat langkah penyelesaian yang sudah terbukti berhasil, waktu penanganan menjadi lebih singkat dan hasilnya lebih konsisten.", { size: 11 });
+
+    paragraph(doc, "Isi buku mencakup berbagai topik seputar jaringan dan infrastruktur IT, mulai dari topologi, instalasi, pemeliharaan, hingga perangkat keras dan sistem-sistem pendukung. Setiap guide ditulis dengan langkah-langkah yang berurutan, dilengkapi konfigurasi, skrip, tabel, atau gambar bila diperlukan, sehingga dapat langsung dipraktikkan.", { size: 11 });
+
+    paragraph(doc, "Guide disusun per kategori dalam bentuk bab agar mudah dicari. Gunakan daftar isi di halaman berikutnya untuk menuju topik yang Anda butuhkan; setiap entri di sana dapat diklik dan akan membawa Anda langsung ke halaman yang dimaksud. Bagi pemula, kami sarankan membaca satu bab secara berurutan. Bagi yang sudah berpengalaman, buku ini dapat dipakai sebagai rujukan cepat.", { size: 11 });
+
+    paragraph(doc, `Edisi ini memuat ${posts.length} guide dalam ${chapters.length} kategori dan akan terus bertambah seiring kontribusi anggota tim IT Pintex. Mengingat teknologi dan perangkat terus berubah, sebagian langkah mungkin perlu disesuaikan dengan versi perangkat atau sistem yang Anda gunakan. Lakukan perubahan konfigurasi dengan hati-hati dan selalu simpan cadangan sebelum memulai.`, { size: 11 });
+
+    paragraph(doc, "Kami menyadari buku ini masih jauh dari sempurna. Kritik, saran, dan tambahan materi dari pembaca sangat kami harapkan demi perbaikan edisi berikutnya.", { size: 11 });
+
     paragraph(doc, "Selamat belajar dan semoga bermanfaat.", { size: 11, font: "Helvetica-Oblique" });
+
+    paragraph(doc, "Tim IT Pintex", { size: 11, font: "Helvetica-Bold" });
 
     // ===== 3. DAFTAR ISI (halaman dicadangkan dulu, diisi belakangan) =====
     const ROW = 20;
