@@ -450,6 +450,12 @@ export const exportAllGuidesPdf = async (req, res, next) => {
     const H = doc.page.height;
     const UW = W - 2 * M;
     const toc = []; // { label, page, level }
+    // catat entri daftar isi + pasang penanda tujuan di halaman yang sedang aktif
+    const markDest = (entry) => {
+      const dest = `toc-${toc.length}`;
+      doc.addNamedDestination(dest);
+      toc.push({ ...entry, page: pageIndex(doc), dest });
+    };
 
     const dividerPages = new Set();
 
@@ -497,7 +503,7 @@ export const exportAllGuidesPdf = async (req, res, next) => {
 
     // ===== 2. KATA PENGANTAR =====
     doc.addPage();
-    toc.push({ label: "Kata Pengantar", page: pageIndex(doc), level: 0 });
+    markDest({ label: "Kata Pengantar", level: 0 });
     dividerPages.add(pageIndex(doc));
     doc.font("Helvetica-Bold").fontSize(20).fillColor(C.dark).text("Kata Pengantar", M, M);
     doc.moveDown(1);
@@ -518,7 +524,7 @@ export const exportAllGuidesPdf = async (req, res, next) => {
     // ===== 4. ISI: BAB PER KATEGORI =====
     chapters.forEach((ch, ci) => {
       doc.addPage();
-      toc.push({ label: `Bab ${ci + 1}. ${ch.cat}`, page: pageIndex(doc), level: 0, bold: true });
+      markDest({ label: `Bab ${ci + 1}. ${ch.cat}`, level: 0, bold: true });
       doc.save().rect(0, 0, W, H).fill(C.primary).restore();
       doc.font("Helvetica").fontSize(12).fillColor("#bfdbfe").text(`BAB ${ci + 1}`, M, H * 0.38);
       doc.font("Helvetica-Bold").fontSize(30).fillColor("#ffffff").text(clean(ch.cat), M, doc.y + 6, { width: UW });
@@ -527,14 +533,14 @@ export const exportAllGuidesPdf = async (req, res, next) => {
 
       ch.items.forEach((p, gi) => {
         doc.addPage();
-        toc.push({ label: `${ci + 1}.${gi + 1}  ${clean(p.title)}`, page: pageIndex(doc), level: 1 });
+        markDest({ label: `${ci + 1}.${gi + 1}  ${clean(p.title)}`, level: 1 });
         renderGuide(doc, p, `${ci + 1}.${gi + 1}`);
       });
     });
 
     // ===== 5. KATA PENUTUP =====
     doc.addPage();
-    toc.push({ label: "Kata Penutup", page: pageIndex(doc), level: 0 });
+    markDest({ label: "Kata Penutup", level: 0 });
     doc.font("Helvetica-Bold").fontSize(20).fillColor(C.dark).text("Kata Penutup", M, M);
     doc.moveDown(1);
     paragraph(doc, "Terima kasih telah membaca buku panduan ini. Pengetahuan teknis terus berkembang, karena itu guide dalam buku ini akan diperbarui secara berkala oleh komunitas.", { size: 11 });
@@ -562,6 +568,7 @@ export const exportAllGuidesPdf = async (req, res, next) => {
         doc.text(pageNo, M + UW - nw, y, { lineBreak: false });
         doc.save().moveTo(x + lw + 6, y + 9).lineTo(M + UW - nw - 6, y + 9)
         .dash(1, { space: 3 }).lineWidth(0.5).stroke(C.line).undash().restore();
+        doc.goTo(M + e.level * 18, y - 3, UW - e.level * 18, ROW - 4, e.dest);
         y += ROW;
     });
     cursor += cap;
