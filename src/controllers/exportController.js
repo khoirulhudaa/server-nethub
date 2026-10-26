@@ -255,6 +255,43 @@ const pageIndex = (doc) => {
   return r.start + r.count - 1;
 };
 
+const drawOrnament = (doc, pageNo) => {
+  const W = doc.page.width;
+  const H = doc.page.height;
+  const UW = W - 2 * M;
+
+  doc.save();
+
+  // 1. Bar aksen di atas (dua warna)
+  doc.rect(0, 0, W, 6).fill(C.primary);
+  doc.rect(0, 0, 90, 6).fill(C.dark);
+
+  // 2. Lingkaran konsentris samar di pojok kanan atas
+  [70, 52, 34].forEach((r, i) => {
+    doc.circle(W, 0, r).lineWidth(0.8).strokeOpacity(0.35 - i * 0.08).stroke(C.primary);
+  });
+  doc.strokeOpacity(1);
+
+  // 3. Pola titik di pojok kiri bawah
+  doc.fillOpacity(0.35);
+  for (let r = 0; r < 4; r++) {
+    for (let c = 0; c < 6; c++) {
+      doc.circle(M + c * 7, H - 100 + r * 7, 1.1).fill(C.primary);
+    }
+  }
+  doc.fillOpacity(1);
+
+  // 4. Garis footer + aksen tebal di kiri
+  doc.moveTo(M, H - 46).lineTo(M + UW, H - 46).lineWidth(0.5).stroke(C.line);
+  doc.moveTo(M, H - 46).lineTo(M + 36, H - 46).lineWidth(2).stroke(C.primary);
+
+  // 5. Pita kecil di tepi kanan, berganti sisi kiri/kanan tiap halaman
+  const onRight = pageNo % 2 === 0;
+  doc.rect(onRight ? W - 4 : 0, H * 0.45, 4, 60).fill(C.primary);
+
+  doc.restore();
+};
+
 const ensureSpace = (doc, h) => {
   if (doc.y + h > doc.page.height - doc.page.margins.bottom) doc.addPage();
 };
@@ -421,6 +458,8 @@ export const exportAllGuidesPdf = async (req, res, next) => {
     const UW = W - 2 * M;
     const toc = []; // { label, page, level }
 
+    const dividerPages = new Set();
+
     // ===== 1. // ===== 1. COVER =====
     // margin bawah dimatikan sementara supaya teks di dasar cover tidak memicu halaman baru
     const coverBottom = doc.page.margins.bottom;
@@ -466,6 +505,7 @@ export const exportAllGuidesPdf = async (req, res, next) => {
     // ===== 2. KATA PENGANTAR =====
     doc.addPage();
     toc.push({ label: "Kata Pengantar", page: pageIndex(doc), level: 0 });
+    dividerPages.add(pageIndex(doc));
     doc.font("Helvetica-Bold").fontSize(26).fillColor(C.dark).text("Kata Pengantar", M, M);
     doc.moveDown(1);
     paragraph(doc, "Buku panduan ini merupakan kumpulan guide yang ditulis dan dibagikan oleh komunitas NetHub. Isinya mencakup berbagai topik seputar jaringan dan infrastruktur IT, mulai dari topologi, instalasi, pemeliharaan, hingga perangkat keras dan sistem-sistem pendukung.", { size: 11 });
@@ -538,6 +578,7 @@ export const exportAllGuidesPdf = async (req, res, next) => {
     const range = doc.bufferedPageRange();
     for (let i = 1; i < range.count; i++) {
       doc.switchToPage(i);
+      if (!dividerPages.has(i)) drawOrnament(doc, i);
       const oldBottom = doc.page.margins.bottom;
       doc.page.margins.bottom = 0; // cegah auto page-break saat nulis footer
       doc.font("Helvetica").fontSize(8).fillColor(C.muted);
