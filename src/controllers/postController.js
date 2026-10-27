@@ -154,7 +154,7 @@ export const getPosts = async (req, res, next) => {
           .populate("author", "name avatar title")
           .sort({ createdAt: -1 })
           .skip(skip)
-          .limit(Number(limit)),
+          .limit(Number(limitNum)),
         Post.countDocuments(filter),
       ]);
       return res.json({
@@ -171,7 +171,7 @@ export const getPosts = async (req, res, next) => {
           .populate("author", "name avatar title")
           .sort({ createdAt: -1 })
           .skip(skip)
-          .limit(Number(limit)),
+          .limit(Number(limitNum)),
         Post.countDocuments(filter),
       ]);
       return res.json({
@@ -194,7 +194,7 @@ export const getPosts = async (req, res, next) => {
 
     const [pinnedRaw, posts, total] = await Promise.all([
       Post.find(pinnedFilter).populate("author", "name avatar title"),
-      Post.find(filter)
+      Post.find(postsFilter)
       .populate("author", "name avatar title")
       .sort({ createdAt: -1 })
       .skip(skip)

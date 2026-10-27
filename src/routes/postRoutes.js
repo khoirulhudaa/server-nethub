@@ -16,7 +16,7 @@
     getPostById,
     removeFromReadingList,
   } from "../controllers/postController.js";
-  import { protect, optionalAuth } from "../middleware/auth.js";
+  import { protect, optionalAuth, requireCreator } from "../middleware/auth.js";
 import { exportAllGuidesPdf } from "../controllers/exportController.js";
 
   const router = Router();
@@ -27,10 +27,10 @@ import { exportAllGuidesPdf } from "../controllers/exportController.js";
   router.get("/mine", protect, getMyPosts);
   // router.get("/:slug", getPostBySlug);
   router.get("/:slug", optionalAuth, getPostBySlug);
-  router.post("/", protect, createPost);
-  router.put("/:id", protect, updatePost);
+  router.post("/", protect, requireCreator, createPost);
+  router.put("/:id", protect, requireCreator, updatePost);
   router.get("/export/pdf", optionalAuth, exportAllGuidesPdf);
-  router.delete("/:id", protect, deletePost);
+  router.delete("/:id", protect, requireCreator, deletePost);
   router.patch("/:id/pin", protect, togglePin);
   router.patch("/:id/like", protect, toggleLike);
   router.post("/posts/:id/bookmark", protect, toggleBookmark);
